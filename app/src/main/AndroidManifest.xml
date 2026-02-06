@@ -26,18 +26,22 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="API_KEY" />
+            android:value="AIzaSyCfqOfFyErPEmt5_Xj4yY5x-phF_AwWagE" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashActivity"
             android:exported="true">
 
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
 
         <service
             android:name=".LocationService"
