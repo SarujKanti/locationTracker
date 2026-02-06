@@ -8,3 +8,9 @@ The application follows best Android development practices, including proper per
 4. GPS Enable Detection
 5. Share Current Location
 6. Persistent Notification
+
+
+
+![dashboard](https://github.com/user-attachments/assets/cb32059b-fb5c-460b-bcc7-7a504ca83b45)
+
+![notification](https://github.com/user-attachments/assets/8ea8cdd2-ef25-4232-a18c-e31438ce14f1)
