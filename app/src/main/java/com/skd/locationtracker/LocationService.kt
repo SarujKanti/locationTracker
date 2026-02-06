@@ -80,8 +80,10 @@ class LocationService : Service() {
             val channel = NotificationChannel(
                 channelId,
                 "Location Tracking",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             )
+            channel.setShowBadge(true)
+
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
@@ -89,7 +91,10 @@ class LocationService : Service() {
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Tracking location")
             .setContentText("Location tracking is active")
-            .setSmallIcon(R.mipmap.ic_launcher) // SAFE ICON
+            .setSmallIcon(R.drawable.logo)
+            .setOngoing(true)
             .build()
     }
+
+
 }
