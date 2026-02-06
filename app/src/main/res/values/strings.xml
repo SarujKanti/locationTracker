@@ -1,3 +1,16 @@
 <resources>
     <string name="app_name">Locate Me</string>
+
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="share">Share</string>
+
+    <string name="location_permission">Location permission required</string>
+    <string name="unable_to_locate">Unable to get location</string>
+    <string name="share_location_via">Share location via</string>
+    <string name="enable_location">Please enable location services</string>
+    <string name="allow_notification">Please allow notifications to start tracking</string>
+
+    <string name="tracking_location">Tracking location</string>
+    <string name="tracking_isActive">Location tracking is active</string>
 </resources>

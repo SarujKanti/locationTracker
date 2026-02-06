@@ -89,8 +89,8 @@ class LocationService : Service() {
         }
 
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Tracking location")
-            .setContentText("Location tracking is active")
+            .setContentTitle(getString(R.string.tracking_location))
+            .setContentText(getString(R.string.tracking_isActive))
             .setSmallIcon(R.drawable.logo)
             .setOngoing(true)
             .build()

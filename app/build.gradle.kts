@@ -46,15 +46,15 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    // Google Maps
+    /* Google Maps*/
     implementation ("com.google.android.gms:play-services-maps:18.2.0")
 
-    // Location Services
+    /* Location Services*/
     implementation ("com.google.android.gms:play-services-location:21.0.1")
 
-    // Lifecycle
+    /* Lifecycle*/
     implementation ("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
 
-    // Coroutines
+    /* Coroutines*/
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }

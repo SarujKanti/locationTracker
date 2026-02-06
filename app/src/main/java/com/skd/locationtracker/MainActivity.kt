@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     enableMyLocation()
                 }
             } else {
-                Toast.makeText(this, "Location permission required", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.location_permission), Toast.LENGTH_LONG).show()
             }
     }
 
@@ -75,8 +75,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 safeStartTracking()
             }
         }
-
-
 
         btnStop.setOnClickListener {
             stopService(Intent(this, LocationService::class.java))
@@ -157,11 +155,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         )
     }
 
-
-
     private fun shareCurrentLocation() {
         if (!PermissionUtils.hasLocationPermission(this)) {
-            Toast.makeText(this, "Location permission required", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.location_permission), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -186,7 +182,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         fusedClient.lastLocation.addOnSuccessListener { location ->
             if (location == null) {
-                Toast.makeText(this, "Unable to get location", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.unable_to_locate), Toast.LENGTH_SHORT).show()
                 return@addOnSuccessListener
             }
 
@@ -201,7 +197,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             startActivity(
-                Intent.createChooser(shareIntent, "Share location via")
+                Intent.createChooser(shareIntent, getString(R.string.share_location_via))
             )
         }
     }
@@ -239,7 +235,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val task = client.checkLocationSettings(builder.build())
 
         task.addOnSuccessListener {
-            // ✅ Location is ON
             onEnabled()
         }
 
@@ -253,7 +248,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             } else {
                 Toast.makeText(
                     this,
-                    "Please enable location services",
+                    getString(R.string.enable_location),
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -275,7 +270,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (!canStartForegroundService()) {
             Toast.makeText(
                 this,
-                "Please allow notifications to start tracking",
+                getString(R.string.allow_notification),
                 Toast.LENGTH_LONG
             ).show()
             requestNotificationPermission()
@@ -287,6 +282,4 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             Intent(this, LocationService::class.java)
         )
     }
-
-
 }
