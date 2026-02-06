@@ -42,24 +42,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun enableMyLocation() {
         if (!PermissionUtils.hasLocationPermission(this)) return
+        if (!::googleMap.isInitialized) return
 
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
-        }
         googleMap.isMyLocationEnabled = true
         moveCameraToCurrentLocation()
     }
@@ -78,16 +62,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.mapFragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
+        requestNotificationPermission()
 
         btnStart.setOnClickListener {
-            if (PermissionUtils.hasLocationPermission(this)) {
-                startForegroundService(
-                    Intent(this, LocationService::class.java)
-                )
-            } else {
+            if (!PermissionUtils.hasLocationPermission(this)) {
                 requestLocationPermission()
+                return@setOnClickListener
+            }
+
+            checkAndEnableLocation {
+                enableMyLocation()
+                safeStartTracking()
             }
         }
+
+
 
         btnStop.setOnClickListener {
             stopService(Intent(this, LocationService::class.java))
@@ -118,12 +107,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-
-
     private fun moveCameraToCurrentLocation() {
         val fusedClient = LocationServices.getFusedLocationProviderClient(this)
 
         if (!PermissionUtils.hasLocationPermission(this)) return
+        if (!::googleMap.isInitialized) return
+
+        val request = com.google.android.gms.location.LocationRequest.Builder(
+            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+            1000
+        )
+            .setMaxUpdates(1)
+            .build()
+
+        val callback = object : com.google.android.gms.location.LocationCallback() {
+            override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                val location = result.lastLocation ?: return
+
+                val latLng = LatLng(location.latitude, location.longitude)
+                googleMap.animateCamera(
+                    CameraUpdateFactory.newLatLngZoom(latLng, 16f)
+                )
+
+                fusedClient.removeLocationUpdates(this)
+            }
+        }
 
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -142,18 +150,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             // for ActivityCompat#requestPermissions for more details.
             return
         }
-        fusedClient.getCurrentLocation(
-            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
-            null
-        ).addOnSuccessListener { location ->
-            location?.let {
-                val latLng = LatLng(it.latitude, it.longitude)
-                googleMap.animateCamera(
-                    CameraUpdateFactory.newLatLngZoom(latLng, 16f)
-                )
-            }
-        }
+        fusedClient.requestLocationUpdates(
+            request,
+            callback,
+            mainLooper
+        )
     }
+
 
 
     private fun shareCurrentLocation() {
@@ -201,6 +204,88 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 Intent.createChooser(shareIntent, "Share location via")
             )
         }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    200
+                )
+            }
+        }
+    }
+
+    private fun checkAndEnableLocation(onEnabled: () -> Unit) {
+        val locationRequest = com.google.android.gms.location.LocationRequest
+            .Builder(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                5000
+            )
+            .build()
+
+        val builder = com.google.android.gms.location.LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .setAlwaysShow(true)
+
+        val client = com.google.android.gms.location.LocationServices
+            .getSettingsClient(this)
+
+        val task = client.checkLocationSettings(builder.build())
+
+        task.addOnSuccessListener {
+            // ✅ Location is ON
+            onEnabled()
+        }
+
+        task.addOnFailureListener { exception ->
+            if (exception is com.google.android.gms.common.api.ResolvableApiException) {
+                try {
+                    exception.startResolutionForResult(this, 300)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            } else {
+                Toast.makeText(
+                    this,
+                    "Please enable location services",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    private fun canStartForegroundService(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun safeStartTracking() {
+        if (!canStartForegroundService()) {
+            Toast.makeText(
+                this,
+                "Please allow notifications to start tracking",
+                Toast.LENGTH_LONG
+            ).show()
+            requestNotificationPermission()
+            return
+        }
+
+        ContextCompat.startForegroundService(
+            this,
+            Intent(this, LocationService::class.java)
+        )
     }
 
 
