@@ -277,8 +277,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             return
         }
 
-        ContextCompat.startForegroundService(
-            this,
+        ContextCompat.startForegroundService(this,
             Intent(this, LocationService::class.java)
         )
     }
