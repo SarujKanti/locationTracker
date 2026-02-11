@@ -79,7 +79,6 @@ class LocationService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-
                 "Location Tracking",
                 NotificationManager.IMPORTANCE_DEFAULT
             )
