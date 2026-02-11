@@ -75,7 +75,6 @@ class LocationService : Service() {
 
     private fun createNotification(): Notification {
         val channelId = "location_channel"
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
