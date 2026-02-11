@@ -70,7 +70,6 @@ class LocationService : Service() {
         fusedClient.removeLocationUpdates(locationCallback)
         super.onDestroy()
     }
-
     override fun onBind(intent: Intent?): IBinder? = null
     private fun createNotification(): Notification {
         val channelId = "location_channel"
