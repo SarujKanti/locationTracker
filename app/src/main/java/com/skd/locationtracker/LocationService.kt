@@ -84,6 +84,7 @@ class LocationService : Service() {
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
+        
 
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle(getString(R.string.tracking_location))
