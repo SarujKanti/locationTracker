@@ -72,7 +72,7 @@ class LocationService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
-    
+
     private fun createNotification(): Notification {
         val channelId = "location_channel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -86,7 +86,6 @@ class LocationService : Service() {
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
-
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle(getString(R.string.tracking_location))
             .setContentText(getString(R.string.tracking_isActive))
