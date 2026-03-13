@@ -82,10 +82,11 @@ class LocationService : Service() {
                 NotificationManager.IMPORTANCE_DEFAULT
             )
             channel.setShowBadge(true)
-            
+
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
+        
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle(getString(R.string.tracking_location))
             .setContentText(getString(R.string.tracking_isActive))
