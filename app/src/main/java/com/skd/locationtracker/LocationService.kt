@@ -82,8 +82,7 @@ class LocationService : Service() {
                 NotificationManager.IMPORTANCE_DEFAULT
             )
             channel.setShowBadge(true)
-
-
+            
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
