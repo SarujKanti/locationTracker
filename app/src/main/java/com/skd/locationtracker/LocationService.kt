@@ -70,6 +70,7 @@ class LocationService : Service() {
         fusedClient.removeLocationUpdates(locationCallback)
         super.onDestroy()
     }
+
     
     override fun onBind(intent: Intent?): IBinder? = null
 
