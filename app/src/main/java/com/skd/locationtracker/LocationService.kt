@@ -71,6 +71,7 @@ class LocationService : Service() {
         super.onDestroy()
     }
 
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotification(): Notification {
