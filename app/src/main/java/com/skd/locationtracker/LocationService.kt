@@ -71,7 +71,6 @@ class LocationService : Service() {
         super.onDestroy()
     }
 
-
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotification(): Notification {
@@ -83,7 +82,7 @@ class LocationService : Service() {
                 NotificationManager.IMPORTANCE_DEFAULT
             )
             channel.setShowBadge(true)
-            
+
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
