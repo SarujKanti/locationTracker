@@ -194,12 +194,9 @@ class ShareSessionActivity : AppCompatActivity() {
     }
 
     private fun shareCodeViaIntent() {
-        // The HTTPS link opens the app directly if installed (Android App Links),
-        // or shows the landing page with a Play Store download button if not installed.
-        val appLink = "https://sarujkanti.github.io/locationTracker/?code=$sessionId"
-        val text = "📍 Track my live location in real-time!\n\n" +
-                "Tap this link to open:\n$appLink\n\n" +
-                "(If you don't have the app, the page will guide you to download it for free)"
+        val text = "📍 I'm sharing my live location with you!\n\n" +
+                "Open the Locate Me app → tap \"View Live\" → enter this code:\n\n" +
+                "🔑 $sessionId"
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
