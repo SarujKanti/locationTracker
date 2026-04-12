@@ -194,9 +194,10 @@ class ShareSessionActivity : AppCompatActivity() {
     }
 
     private fun shareCodeViaIntent() {
-        val text = "📍 I'm sharing my live location with you!\n\n" +
-                "Open the Locate Me app → tap \"View Live\" → enter this code:\n\n" +
-                "🔑 $sessionId"
+        // HTTPS link — Android intercepts it and opens the app directly if installed.
+        // If not installed, GitHub Pages shows a minimal fallback with a download button.
+        val link = "https://sarujkanti.github.io/locationTracker/?code=$sessionId"
+        val text = "📍 I'm sharing my live location with you!\n\nTap to open:\n$link"
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)

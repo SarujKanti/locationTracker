@@ -54,12 +54,29 @@
             android:exported="true"
             android:launchMode="singleTop">
 
-            <!-- Deep link: locateme://view?code=XXXXXXXX -->
+            <!-- Custom scheme fallback: locateme://view?code=XXXXXXXX -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="locateme" android:host="view"/>
+            </intent-filter>
+
+            <!--
+                Android App Links (HTTPS).
+                When the other person taps the shared link AND has the app installed,
+                Android OS intercepts it here — the browser NEVER opens, no web page shown.
+                Only people WITHOUT the app see the fallback web page.
+                autoVerify=true removes the disambiguation dialog entirely.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="sarujkanti.github.io"
+                    android:pathPrefix="/locationTracker/"/>
             </intent-filter>
         </activity>
 
