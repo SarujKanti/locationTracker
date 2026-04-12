@@ -54,7 +54,7 @@
             android:exported="true"
             android:launchMode="singleTop">
 
-            <!-- Deep link: locateme://view?code=XXXXXXXX -->
+            <!-- locateme://view?code=XXXXXXXX — opens app directly if installed -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
