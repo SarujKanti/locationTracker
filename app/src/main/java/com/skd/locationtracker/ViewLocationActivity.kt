@@ -74,9 +74,7 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.viewerMapFragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        // Extract code from either:
-        //   locateme://view?code=XXXXXXXX                                  (custom scheme)
-        //   https://sarujkanti.github.io/locationTracker/?code=XXXXXXXX   (App Link)
+        // Extract code from locateme://view?code=XXXXXXXX or from explicit intent extra
         val deepLinkCode = (intent.data?.getQueryParameter("code")
             ?: intent.getStringExtra("code"))?.uppercase()
         if (!deepLinkCode.isNullOrBlank()) {

@@ -54,25 +54,12 @@
             android:exported="true"
             android:launchMode="singleTop">
 
-            <!-- Custom deep link: locateme://view?code=XXXXXXXX -->
+            <!-- Deep link: locateme://view?code=XXXXXXXX -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="locateme" android:host="view"/>
-            </intent-filter>
-
-            <!-- Android App Links: https://sarujkanti.github.io/locationTracker/?code=XXXXXXXX
-                 autoVerify=true makes Android verify ownership via assetlinks.json
-                 so the app opens DIRECTLY without the disambiguation dialog. -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data
-                    android:scheme="https"
-                    android:host="sarujkanti.github.io"
-                    android:pathPrefix="/locationTracker/"/>
             </intent-filter>
         </activity>
 
