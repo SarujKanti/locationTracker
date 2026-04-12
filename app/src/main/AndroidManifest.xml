@@ -43,15 +43,36 @@
             android:name=".ShareSessionActivity"
             android:exported="false"/>
 
-        <!-- ViewLocationActivity handles the deep link: locateme://view?code=XXXXXXXX -->
+        <!--
+            ViewLocationActivity handles two types of links:
+            1. Custom scheme (locateme://)  – always works if app is installed
+            2. HTTPS App Links (GitHub Pages) – Android auto-opens app if installed,
+               browser opens landing page if not installed
+        -->
         <activity
             android:name=".ViewLocationActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
+
+            <!-- Custom deep link: locateme://view?code=XXXXXXXX -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="locateme" android:host="view"/>
+            </intent-filter>
+
+            <!-- Android App Links: https://sarujkanti.github.io/locationTracker/?code=XXXXXXXX
+                 autoVerify=true makes Android verify ownership via assetlinks.json
+                 so the app opens DIRECTLY without the disambiguation dialog. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="sarujkanti.github.io"
+                    android:pathPrefix="/locationTracker/"/>
             </intent-filter>
         </activity>
 
