@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -46,18 +47,22 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    /* Google Maps*/
-    implementation ("com.google.android.gms:play-services-maps:18.2.0")
+    /* Google Maps */
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
 
-    /* Location Services*/
-    implementation ("com.google.android.gms:play-services-location:21.0.1")
+    /* Location Services */
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 
-    /* Lifecycle*/
-    implementation ("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    /* Lifecycle */
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
 
-    /* Coroutines*/
-    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    /* Coroutines */
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     /* LocalBroadcastManager */
-    implementation ("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
+
+    /* Firebase – Realtime Database for live location sharing */
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-database-ktx")
 }

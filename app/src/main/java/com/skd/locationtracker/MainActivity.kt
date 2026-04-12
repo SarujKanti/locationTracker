@@ -41,7 +41,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var googleMap: GoogleMap
     private lateinit var btnStart: MaterialButton
     private lateinit var btnStop: MaterialButton
-    private lateinit var btnShare: MaterialButton
+    private lateinit var btnShareLive: MaterialButton
+    private lateinit var btnViewLive: MaterialButton
     private lateinit var tvLat: TextView
     private lateinit var tvLng: TextView
     private lateinit var tvSpeed: TextView
@@ -63,7 +64,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-    // Broadcast receiver for location updates from LocationService
     private val locationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != LocationService.ACTION_LOCATION_UPDATE) return
@@ -71,7 +71,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val lng = intent.getDoubleExtra(LocationService.EXTRA_LONGITUDE, 0.0)
             val speed = intent.getFloatExtra(LocationService.EXTRA_SPEED, 0f)
             val accuracy = intent.getFloatExtra(LocationService.EXTRA_ACCURACY, -1f)
-
             onNewLocation(lat, lng, speed, accuracy)
         }
     }
@@ -98,13 +97,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         btnStart.setOnClickListener { handleStartTracking() }
         btnStop.setOnClickListener { handleStopTracking() }
-        btnShare.setOnClickListener { shareCurrentLocation() }
+        btnShareLive.setOnClickListener {
+            startActivity(Intent(this, ShareSessionActivity::class.java))
+        }
+        btnViewLive.setOnClickListener {
+            startActivity(Intent(this, ViewLocationActivity::class.java))
+        }
     }
 
     private fun bindViews() {
         btnStart = findViewById(R.id.btnStart)
         btnStop = findViewById(R.id.btnStop)
-        btnShare = findViewById(R.id.btnShare)
+        btnShareLive = findViewById(R.id.btnShareLive)
+        btnViewLive = findViewById(R.id.btnViewLive)
         tvLat = findViewById(R.id.tvLat)
         tvLng = findViewById(R.id.tvLng)
         tvSpeed = findViewById(R.id.tvSpeed)
@@ -117,7 +122,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onMapReady(map: GoogleMap) {
         googleMap = map
-
         googleMap.uiSettings.apply {
             isZoomControlsEnabled = false
             isCompassEnabled = true
@@ -125,8 +129,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             isTiltGesturesEnabled = true
             isRotateGesturesEnabled = true
         }
-
-        googleMap.mapType = GoogleMap.MAP_TYPE_NORMAL
 
         if (PermissionUtils.hasLocationPermission(this)) {
             setupMap()
@@ -144,11 +146,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (!PermissionUtils.hasLocationPermission(this)) return
         if (!::googleMap.isInitialized) return
 
-        try {
-            googleMap.isMyLocationEnabled = false // we use custom marker instead
-        } catch (_: SecurityException) { }
-
-        // Fetch initial location to center map
         val fusedClient = LocationServices.getFusedLocationProviderClient(this)
         if (ActivityCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION
@@ -176,7 +173,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             )
             return
         }
-
         checkLocationSettingsAndRun {
             if (!canStartForegroundService()) {
                 Toast.makeText(this, getString(R.string.allow_notification), Toast.LENGTH_LONG).show()
@@ -186,8 +182,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             ContextCompat.startForegroundService(this, Intent(this, LocationService::class.java))
             isTracking = true
             updateTrackingUI(true)
-
-            // Also do a one-shot high accuracy update right away
             fetchImmediateLocation()
         }
     }
@@ -195,26 +189,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun fetchImmediateLocation() {
         if (!PermissionUtils.hasLocationPermission(this)) return
         val fusedClient = LocationServices.getFusedLocationProviderClient(this)
-
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
-            .setMaxUpdates(1)
-            .build()
+            .setMaxUpdates(1).build()
 
         val callback = object : com.google.android.gms.location.LocationCallback() {
             override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
                 val loc = result.lastLocation ?: return
-                onNewLocation(loc.latitude, loc.longitude,
+                onNewLocation(
+                    loc.latitude, loc.longitude,
                     if (loc.hasSpeed()) loc.speed * 3.6f else 0f,
-                    if (loc.hasAccuracy()) loc.accuracy else -1f)
+                    if (loc.hasAccuracy()) loc.accuracy else -1f
+                )
                 fusedClient.removeLocationUpdates(this)
             }
         }
-
         if (ActivityCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) return
-
         fusedClient.requestLocationUpdates(request, callback, mainLooper)
     }
 
@@ -229,30 +221,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         lastShareLat = lat
         lastShareLng = lng
 
-        // Update stats UI
         tvLat.text = "%.5f°".format(lat)
         tvLng.text = "%.5f°".format(lng)
         tvSpeed.text = if (speed > 0) "%.1f km/h".format(speed) else "0.0 km/h"
         tvAccuracy.text = if (accuracy > 0) "±%.0fm".format(accuracy) else "—"
         tvLastUpdated.text = "Updated at ${timeFormatter.format(Date())}"
 
-        // Add to route
         routePoints.add(newLatLng)
         updateRoutePolyline()
 
         val from = previousLatLng
         if (from != null) {
             animateMarkerTo(from, newLatLng)
-            // Smoothly follow with camera
-            googleMap.animateCamera(
-                CameraUpdateFactory.newLatLng(newLatLng),
-                800, null
-            )
+            googleMap.animateCamera(CameraUpdateFactory.newLatLng(newLatLng), 800, null)
         } else {
             placePersonMarker(newLatLng)
             googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(newLatLng, 17f))
         }
-
         previousLatLng = newLatLng
     }
 
@@ -271,26 +256,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun animateMarkerTo(from: LatLng, to: LatLng) {
         markerAnimator?.cancel()
-
         markerAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 1200
             interpolator = LinearInterpolator()
-
             addUpdateListener { anim ->
-                val fraction = anim.animatedFraction
-                val lat = from.latitude + (to.latitude - from.latitude) * fraction
-                val lng = from.longitude + (to.longitude - from.longitude) * fraction
-                val interpolated = LatLng(lat, lng)
-
+                val f = anim.animatedFraction
+                val pos = LatLng(
+                    from.latitude + (to.latitude - from.latitude) * f,
+                    from.longitude + (to.longitude - from.longitude) * f
+                )
                 val marker = personMarker
-                if (marker == null) {
-                    placePersonMarker(interpolated)
-                } else {
-                    marker.position = interpolated
-                    // Rotate marker to face direction of movement
-                    val bearing = bearingBetween(from, to)
-                    marker.rotation = bearing
-                }
+                if (marker == null) placePersonMarker(pos)
+                else { marker.position = pos; marker.rotation = bearingBetween(from, to) }
             }
         }
         markerAnimator?.start()
@@ -299,7 +276,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun updateRoutePolyline() {
         routePolyline?.remove()
         if (routePoints.size < 2) return
-
         routePolyline = googleMap.addPolyline(
             PolylineOptions()
                 .addAll(routePoints)
@@ -312,41 +288,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         )
     }
 
+    /** Blue person marker for the current user. */
     private fun createPersonBitmap(): Bitmap {
         val size = (56 * resources.displayMetrics.density).toInt()
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        val cx = size / 2f
-        val cy = size / 2f
-        val r = size / 2f
-
-        val paintOuter = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#331565C0")
-        }
-        val paintWhite = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-        }
-        val paintBlue = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#1565C0")
-        }
-
-        canvas.drawCircle(cx, cy, r * 0.95f, paintOuter)
-        canvas.drawCircle(cx, cy, r * 0.7f, paintWhite)
-        canvas.drawCircle(cx, cy, r * 0.55f, paintBlue)
-
-        // Person head
-        canvas.drawCircle(cx, cy - r * 0.18f, r * 0.16f, paintWhite)
-
-        // Person body arc
-        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-        }
-        val bodyRect = android.graphics.RectF(
-            cx - r * 0.28f, cy - r * 0.05f,
-            cx + r * 0.28f, cy + r * 0.3f
+        val cx = size / 2f; val cy = size / 2f; val r = size / 2f
+        canvas.drawCircle(cx, cy, r * 0.95f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#331565C0") })
+        canvas.drawCircle(cx, cy, r * 0.7f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
+        canvas.drawCircle(cx, cy, r * 0.55f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1565C0") })
+        canvas.drawCircle(cx, cy - r * 0.18f, r * 0.16f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
+        canvas.drawArc(
+            android.graphics.RectF(cx - r * 0.28f, cy - r * 0.05f, cx + r * 0.28f, cy + r * 0.3f),
+            0f, 180f, true, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
         )
-        canvas.drawArc(bodyRect, 0f, 180f, true, bodyPaint)
-
         return bitmap
     }
 
@@ -364,71 +323,39 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             tvStatusLabel.text = getString(R.string.status_tracking)
             tvStatusLabel.setTextColor(ContextCompat.getColor(this, R.color.green_active))
             statusDot.setBackgroundResource(R.drawable.bg_tracking_active)
-            btnStart.isEnabled = false
-            btnStart.alpha = 0.5f
-            btnStop.isEnabled = true
+            btnStart.isEnabled = false; btnStart.alpha = 0.5f
         } else {
             tvStatusLabel.text = getString(R.string.status_idle)
             tvStatusLabel.setTextColor(ContextCompat.getColor(this, R.color.on_surface_secondary))
             statusDot.setBackgroundResource(R.drawable.bg_tracking_inactive)
-            btnStart.isEnabled = true
-            btnStart.alpha = 1f
-            btnStop.isEnabled = true
+            btnStart.isEnabled = true; btnStart.alpha = 1f
         }
-    }
-
-    private fun shareCurrentLocation() {
-        if (!PermissionUtils.hasLocationPermission(this)) {
-            Toast.makeText(this, getString(R.string.location_permission), Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (lastShareLat == 0.0 && lastShareLng == 0.0) {
-            Toast.makeText(this, getString(R.string.unable_to_locate), Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val mapsUrl = "https://www.google.com/maps?q=${lastShareLat},${lastShareLng}"
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "My current location:\n$mapsUrl")
-        }
-        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_location_via)))
     }
 
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this, Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 200)
-            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 200)
         }
     }
 
-    private fun canStartForegroundService(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else true
-    }
+    private fun canStartForegroundService() =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+        else true
 
     private fun checkLocationSettingsAndRun(onReady: () -> Unit) {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10_000).build()
         val settingsRequest = com.google.android.gms.location.LocationSettingsRequest.Builder()
-            .addLocationRequest(request)
-            .setAlwaysShow(true)
-            .build()
-
+            .addLocationRequest(request).setAlwaysShow(true).build()
         LocationServices.getSettingsClient(this)
             .checkLocationSettings(settingsRequest)
             .addOnSuccessListener { onReady() }
             .addOnFailureListener { exception ->
                 if (exception is com.google.android.gms.common.api.ResolvableApiException) {
-                    try { exception.startResolutionForResult(this, 300) }
-                    catch (_: Exception) { }
+                    try { exception.startResolutionForResult(this, 300) } catch (_: Exception) { }
                 } else {
                     Toast.makeText(this, getString(R.string.enable_location), Toast.LENGTH_SHORT).show()
                 }
@@ -438,8 +365,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onResume() {
         super.onResume()
         LocalBroadcastManager.getInstance(this).registerReceiver(
-            locationReceiver,
-            IntentFilter(LocationService.ACTION_LOCATION_UPDATE)
+            locationReceiver, IntentFilter(LocationService.ACTION_LOCATION_UPDATE)
         )
     }
 

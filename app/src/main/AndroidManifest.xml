@@ -8,12 +8,11 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
-    <uses-feature
-        android:name="android.hardware.location.gps"
-    android:required="true"/>
+    <uses-feature android:name="android.hardware.location.gps" android:required="true"/>
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/logo"
@@ -25,25 +24,41 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyCfqOfFyErPEmt5_Xj4yY5x-phF_AwWagE" />
+            android:value="AIzaSyCfqOfFyErPEmt5_Xj4yY5x-phF_AwWagE"/>
 
         <activity
             android:name=".SplashActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
         <activity
             android:name=".MainActivity"
-            android:exported="false" />
+            android:exported="false"/>
+
+        <activity
+            android:name=".ShareSessionActivity"
+            android:exported="false"/>
+
+        <!-- ViewLocationActivity handles the deep link: locateme://view?code=XXXXXXXX -->
+        <activity
+            android:name=".ViewLocationActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="locateme" android:host="view"/>
+            </intent-filter>
+        </activity>
 
         <service
             android:name=".LocationService"
             android:foregroundServiceType="location"
-            android:exported="false" />
+            android:exported="false"/>
 
     </application>
 </manifest>
