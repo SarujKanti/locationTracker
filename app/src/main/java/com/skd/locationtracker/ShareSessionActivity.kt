@@ -1,6 +1,11 @@
 package com.skd.locationtracker
 
-import android.content.*
+import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
@@ -184,8 +189,8 @@ class ShareSessionActivity : AppCompatActivity() {
     }
 
     private fun copyToClipboard(text: String) {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.app.ClipboardManager
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Session Code", text))
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Session Code", text))
     }
 
     private fun shareCodeViaIntent() {
