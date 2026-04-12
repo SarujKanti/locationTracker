@@ -194,8 +194,9 @@ class ShareSessionActivity : AppCompatActivity() {
     }
 
     private fun shareCodeViaIntent() {
-        val deepLink = "locateme://view?code=$sessionId"
-        val text = "📍 I'm sharing my live location with you!\n\nTap to open in Locate Me app:\n$deepLink"
+        val text = "📍 I'm sharing my live location with you!\n\n" +
+                "Open the \"Locate Me\" app → tap \"View Live\" → enter this code:\n\n" +
+                "🔑  $sessionId"
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
