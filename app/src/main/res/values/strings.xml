@@ -1,17 +1,29 @@
 <resources>
     <string name="app_name">Locate Me</string>
     <string name="dev_name">Saruj Kanti Das</string>
+    <string name="tagline">Real-Time Location Tracker</string>
 
-    <string name="start">Start</string>
+    <string name="start">Start Tracking</string>
     <string name="stop">Stop</string>
     <string name="share">Share</string>
 
-    <string name="location_permission">Location permission required</string>
-    <string name="unable_to_locate">Unable to get location</string>
+    <string name="location_permission">Location permission is required to use this app</string>
+    <string name="unable_to_locate">Unable to get current location. Try again.</string>
     <string name="share_location_via">Share location via</string>
-    <string name="enable_location">Please enable location services</string>
-    <string name="allow_notification">Please allow notifications to start tracking</string>
+    <string name="enable_location">Please enable GPS / Location services</string>
+    <string name="allow_notification">Allow notifications to start background tracking</string>
 
-    <string name="tracking_location">Tracking location</string>
-    <string name="tracking_isActive">Location tracking is active</string>
+    <string name="tracking_location">Locate Me — Tracking Active</string>
+    <string name="tracking_isActive">Your location is being tracked in the background</string>
+
+    <string name="status_tracking">Tracking Active</string>
+    <string name="status_idle">Not Tracking</string>
+    <string name="label_latitude">Latitude</string>
+    <string name="label_longitude">Longitude</string>
+    <string name="label_speed">Speed</string>
+    <string name="label_accuracy">Accuracy</string>
+    <string name="label_last_updated">Last Updated</string>
+    <string name="unit_kmh">km/h</string>
+    <string name="unit_meters">m</string>
+    <string name="value_waiting">—</string>
 </resources>
