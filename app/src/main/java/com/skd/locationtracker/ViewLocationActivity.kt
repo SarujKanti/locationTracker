@@ -59,6 +59,9 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     private var firebaseListener: ValueEventListener? = null
     private var currentSessionId: String? = null
 
+    // Code from deep link — held until onMapReady fires
+    private var pendingCode: String? = null
+
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,10 +74,14 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.viewerMapFragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        // Check if launched via deep link: locateme://view?code=XXXXXXXX
-        val deepLinkCode = intent.data?.getQueryParameter("code")
+        // Extract code from either:
+        //   locateme://view?code=XXXXXXXX                                  (custom scheme)
+        //   https://sarujkanti.github.io/locationTracker/?code=XXXXXXXX   (App Link)
+        val deepLinkCode = (intent.data?.getQueryParameter("code")
+            ?: intent.getStringExtra("code"))?.uppercase()
         if (!deepLinkCode.isNullOrBlank()) {
-            etCode.setText(deepLinkCode.uppercase())
+            etCode.setText(deepLinkCode)
+            pendingCode = deepLinkCode   // connect once map is ready in onMapReady()
         }
 
         btnConnect.setOnClickListener {
@@ -119,6 +126,12 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Default camera position (world view until we get a location)
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(20.0, 78.0), 4f))
+
+        // Auto-connect if launched from a deep link / App Link
+        pendingCode?.let { code ->
+            pendingCode = null
+            connectToSession(code)
+        }
 
         // Detect manual camera movement → stop auto-follow
         googleMap.setOnCameraMoveStartedListener { reason ->
