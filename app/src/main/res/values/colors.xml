@@ -2,4 +2,32 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Primary brand colors -->
+    <color name="primary">#1565C0</color>
+    <color name="primary_dark">#0D47A1</color>
+    <color name="primary_light">#1E88E5</color>
+    <color name="accent">#00BCD4</color>
+
+    <!-- Status colors -->
+    <color name="green_active">#43A047</color>
+    <color name="green_active_bg">#E8F5E9</color>
+    <color name="red_stop">#E53935</color>
+    <color name="red_stop_bg">#FFEBEE</color>
+    <color name="blue_share">#1E88E5</color>
+    <color name="blue_share_bg">#E3F2FD</color>
+
+    <!-- Surface colors -->
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F5F5F5</color>
+    <color name="on_surface">#212121</color>
+    <color name="on_surface_secondary">#757575</color>
+    <color name="divider">#E0E0E0</color>
+
+    <!-- Splash gradient -->
+    <color name="splash_start">#0D47A1</color>
+    <color name="splash_end">#1565C0</color>
+
+    <!-- Marker pulse color -->
+    <color name="marker_pulse">#331565C0</color>
 </resources>

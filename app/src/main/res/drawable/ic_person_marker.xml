@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Drop shadow circle -->
+    <path
+        android:fillColor="#33000000"
+        android:pathData="M24,46 C33,46 40,44 40,42 C40,40 33,38 24,38 C15,38 8,40 8,42 C8,44 15,46 24,46 Z"/>
+
+    <!-- Pin body -->
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M24,2 C16.27,2 10,8.27 10,16 C10,26.5 24,42 24,42 C24,42 38,26.5 38,16 C38,8.27 31.73,2 24,2 Z"/>
+
+    <!-- Pin inner circle -->
+    <circle
+        android:fillColor="#FFFFFF"
+        android:cx="24"
+        android:cy="16"
+        android:r="8"/>
+
+    <!-- Person head -->
+    <circle
+        android:fillColor="#1565C0"
+        android:cx="24"
+        android:cy="13"
+        android:r="3"/>
+
+    <!-- Person body -->
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M18,22 C18,18.5 20.7,16 24,16 C27.3,16 30,18.5 30,22 Z"/>
+
+</vector>

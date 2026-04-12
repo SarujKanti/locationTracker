@@ -57,4 +57,7 @@ dependencies {
 
     /* Coroutines*/
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    /* LocalBroadcastManager */
+    implementation ("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 }
