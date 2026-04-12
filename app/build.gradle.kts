@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.skd.locationtracker"
+        applicationId = "skd.locationTracker"
         minSdk = 21
         targetSdk = 36
         versionCode = 1
