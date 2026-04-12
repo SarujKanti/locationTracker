@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+    <!-- Full-screen map -->
+    <fragment
+        android:id="@+id/viewerMapFragment"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <!-- Back button (floating) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabBack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="48dp"
+        android:src="@drawable/ic_arrow_back"
+        app:backgroundTint="@color/white"
+        app:tint="@color/on_surface"
+        app:fabSize="mini"
+        app:elevation="6dp"/>
+
+    <!-- Code entry card (shown before connecting) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardCodeEntry"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="12dp"
+        app:cardBackgroundColor="@color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="View Someone's Live Location"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="@color/on_surface"
+                android:layout_marginBottom="6dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Enter the 8-character code shared by the other person"
+                android:textSize="13sp"
+                android:textColor="@color/on_surface_secondary"
+                android:layout_marginBottom="16dp"/>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Session Code (e.g. AB3X9Z2K)"
+                android:layout_marginBottom="16dp"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                app:boxCornerRadiusTopStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxStrokeColor="@color/primary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etCode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapCharacters|textNoSuggestions"
+                    android:maxLength="8"
+                    android:fontFamily="monospace"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.15"
+                    android:gravity="center"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnConnect"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="Connect"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/primary"
+                app:cornerRadius="14dp"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Live info card (shown after connecting) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardLiveInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        android:visibility="gone"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="12dp"
+        app:cardBackgroundColor="@color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Header row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="14dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tracking Live"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/on_surface"/>
+
+                    <TextView
+                        android:id="@+id/tvViewerCode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="@color/on_surface_secondary"
+                        android:fontFamily="monospace"/>
+                </LinearLayout>
+
+                <!-- Pulse dot + status -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
+                    android:background="@drawable/bg_tracking_active">
+
+                    <View
+                        android:id="@+id/liveDot"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:background="@drawable/bg_tracking_active"
+                        android:layout_marginEnd="6dp"/>
+
+                    <TextView
+                        android:id="@+id/tvLiveLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="LIVE"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/green_active"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Stats row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="LAT" android:textSize="10sp"
+                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
+                    <TextView android:id="@+id/tvViewerLat" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:text="—"
+                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
+                </LinearLayout>
+
+                <View android:layout_width="1dp" android:layout_height="28dp"
+                    android:background="@color/divider" android:layout_gravity="center_vertical"/>
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="LNG" android:textSize="10sp"
+                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
+                    <TextView android:id="@+id/tvViewerLng" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:text="—"
+                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
+                </LinearLayout>
+
+                <View android:layout_width="1dp" android:layout_height="28dp"
+                    android:background="@color/divider" android:layout_gravity="center_vertical"/>
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="SPEED" android:textSize="10sp"
+                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
+                    <TextView android:id="@+id/tvViewerSpeed" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:text="—"
+                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
+                </LinearLayout>
+
+                <View android:layout_width="1dp" android:layout_height="28dp"
+                    android:background="@color/divider" android:layout_gravity="center_vertical"/>
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="±ACC" android:textSize="10sp"
+                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
+                    <TextView android:id="@+id/tvViewerAccuracy" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:text="—"
+                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvViewerUpdated"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:text="Connecting…"
+                android:textSize="11sp"
+                android:textColor="@color/on_surface_secondary"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDisconnect"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:text="Disconnect"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/red_stop"
+                app:backgroundTint="@color/red_stop_bg"
+                app:strokeColor="@color/red_stop"
+                app:strokeWidth="1dp"
+                app:cornerRadius="12dp"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -14,7 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
-    <!-- Top status bar -->
+    <!-- Top status chip -->
     <androidx.cardview.widget.CardView
         android:id="@+id/cardStatus"
         android:layout_width="wrap_content"
@@ -81,137 +81,74 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="14dp">
+                android:layout_marginBottom="10dp">
 
-                <!-- Latitude -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/label_latitude"
-                        android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary"
-                        android:textAllCaps="true"
-                        android:letterSpacing="0.08"/>
-                    <TextView
-                        android:id="@+id/tvLat"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/value_waiting"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/on_surface"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_latitude" android:textSize="10sp"
+                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true" android:letterSpacing="0.08"/>
+                    <TextView android:id="@+id/tvLat" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:text="@string/value_waiting"
+                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
                 </LinearLayout>
 
-                <!-- Divider -->
-                <View android:layout_width="1dp" android:layout_height="32dp"
+                <View android:layout_width="1dp" android:layout_height="28dp"
                     android:background="@color/divider" android:layout_gravity="center_vertical"/>
 
-                <!-- Longitude -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/label_longitude"
-                        android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary"
-                        android:textAllCaps="true"
-                        android:letterSpacing="0.08"/>
-                    <TextView
-                        android:id="@+id/tvLng"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/value_waiting"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/on_surface"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_longitude" android:textSize="10sp"
+                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true" android:letterSpacing="0.08"/>
+                    <TextView android:id="@+id/tvLng" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:text="@string/value_waiting"
+                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
                 </LinearLayout>
 
-                <!-- Divider -->
-                <View android:layout_width="1dp" android:layout_height="32dp"
+                <View android:layout_width="1dp" android:layout_height="28dp"
                     android:background="@color/divider" android:layout_gravity="center_vertical"/>
 
-                <!-- Speed -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/label_speed"
-                        android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary"
-                        android:textAllCaps="true"
-                        android:letterSpacing="0.08"/>
-                    <TextView
-                        android:id="@+id/tvSpeed"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/value_waiting"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/on_surface"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_speed" android:textSize="10sp"
+                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true" android:letterSpacing="0.08"/>
+                    <TextView android:id="@+id/tvSpeed" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:text="@string/value_waiting"
+                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
                 </LinearLayout>
 
-                <!-- Divider -->
-                <View android:layout_width="1dp" android:layout_height="32dp"
+                <View android:layout_width="1dp" android:layout_height="28dp"
                     android:background="@color/divider" android:layout_gravity="center_vertical"/>
 
-                <!-- Accuracy -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/label_accuracy"
-                        android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary"
-                        android:textAllCaps="true"
-                        android:letterSpacing="0.08"/>
-                    <TextView
-                        android:id="@+id/tvAccuracy"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/value_waiting"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/on_surface"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/label_accuracy" android:textSize="10sp"
+                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true" android:letterSpacing="0.08"/>
+                    <TextView android:id="@+id/tvAccuracy" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:text="@string/value_waiting"
+                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Last updated -->
             <TextView
                 android:id="@+id/tvLastUpdated"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="14dp"
+                android:layout_marginBottom="12dp"
                 android:text="Waiting for location…"
                 android:textSize="11sp"
                 android:textColor="@color/on_surface_secondary"/>
 
-            <!-- Action buttons -->
+            <!-- Row 1: Start + Stop -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnStart"
@@ -224,40 +161,57 @@
                     android:textStyle="bold"
                     android:textColor="@color/white"
                     app:backgroundTint="@color/primary"
-                    app:cornerRadius="12dp"
-                    app:icon="@drawable/ic_navigation_marker"
-                    app:iconSize="18dp"
-                    app:iconGravity="textStart"
-                    app:iconTint="@color/white"/>
+                    app:cornerRadius="12dp"/>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnStop"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
                     android:text="@string/stop"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:textColor="@color/red_stop"
                     app:backgroundTint="@color/red_stop_bg"
-                    app:cornerRadius="12dp"
                     app:strokeColor="@color/red_stop"
-                    app:strokeWidth="1dp"/>
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="12dp"/>
+            </LinearLayout>
+
+            <!-- Row 2: Share Live + View Live -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnShare"
+                    android:id="@+id/btnShareLive"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="44dp"
                     android:layout_weight="1"
-                    android:text="@string/share"
-                    android:textSize="13sp"
+                    android:layout_marginEnd="6dp"
+                    android:text="Share Live"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/green_active"
+                    app:backgroundTint="@color/green_active_bg"
+                    app:strokeColor="@color/green_active"
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="12dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnViewLive"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:text="View Live"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:textColor="@color/blue_share"
                     app:backgroundTint="@color/blue_share_bg"
-                    app:cornerRadius="12dp"
                     app:strokeColor="@color/blue_share"
-                    app:strokeWidth="1dp"/>
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="12dp"/>
             </LinearLayout>
         </LinearLayout>
     </androidx.cardview.widget.CardView>

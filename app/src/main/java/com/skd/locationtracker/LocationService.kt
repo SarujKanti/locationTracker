@@ -39,13 +39,31 @@ class LocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val location = result.lastLocation ?: return
-                broadcastLocation(
-                    lat = location.latitude,
-                    lng = location.longitude,
-                    speed = if (location.hasSpeed()) location.speed * 3.6f else 0f, // m/s → km/h
-                    accuracy = if (location.hasAccuracy()) location.accuracy else -1f,
-                    bearing = if (location.hasBearing()) location.bearing else -1f
-                )
+                val lat = location.latitude
+                val lng = location.longitude
+                val speed = if (location.hasSpeed()) location.speed * 3.6f else 0f   // m/s → km/h
+                val accuracy = if (location.hasAccuracy()) location.accuracy else -1f
+                val bearing = if (location.hasBearing()) location.bearing else -1f
+
+                // 1. Notify the UI (MainActivity / ShareSessionActivity)
+                broadcastLocation(lat, lng, speed, accuracy, bearing)
+
+                // 2. If a sharing session is active, push to Firebase so viewers see it
+                if (LocationSharingManager.isSharing(this@LocationService)) {
+                    val sessionId = LocationSharingManager.getOrCreateSessionId(this@LocationService)
+                    FirebaseLocationRepo.pushLocation(
+                        sessionId,
+                        FirebaseLocationRepo.LiveLocation(
+                            lat = lat,
+                            lng = lng,
+                            speed = speed.toDouble(),
+                            accuracy = accuracy.toDouble(),
+                            bearing = bearing.toDouble(),
+                            timestamp = System.currentTimeMillis(),
+                            active = true
+                        )
+                    )
+                }
             }
         }
     }
@@ -66,10 +84,7 @@ class LocationService : Service() {
             ) != PackageManager.PERMISSION_GRANTED
         ) return
 
-        val request = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            UPDATE_INTERVAL_MS
-        )
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, UPDATE_INTERVAL_MS)
             .setMinUpdateIntervalMillis(UPDATE_INTERVAL_MS)
             .setWaitForAccurateLocation(false)
             .build()
@@ -88,10 +103,9 @@ class LocationService : Service() {
             putExtra(EXTRA_BEARING, bearing)
         }
         broadcastManager.sendBroadcast(intent)
-
-        // Update notification with current coordinates
-        val manager = getSystemService(NotificationManager::class.java)
-        manager?.notify(NOTIFICATION_ID, buildNotification("%.5f, %.5f".format(lat, lng)))
+        // Update notification text
+        getSystemService(NotificationManager::class.java)
+            ?.notify(NOTIFICATION_ID, buildNotification("%.5f, %.5f".format(lat, lng)))
     }
 
     private fun createNotificationChannel() {
@@ -111,12 +125,9 @@ class LocationService : Service() {
     private fun buildNotification(locationText: String = "Acquiring location…"): Notification {
         val pendingIntent = PendingIntent.getActivity(
             this, 0,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-            },
+            Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.tracking_location))
             .setContentText(locationText)
