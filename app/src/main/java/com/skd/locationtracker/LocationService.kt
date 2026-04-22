@@ -67,13 +67,14 @@ class LocationService : Service() {
             }
         }
     }
-    
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
         startLocationUpdates()
         return START_STICKY
     }
+    
 
     private fun startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(
