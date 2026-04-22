@@ -74,7 +74,6 @@ class LocationService : Service() {
         startLocationUpdates()
         return START_STICKY
     }
-    
 
     private fun startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(
