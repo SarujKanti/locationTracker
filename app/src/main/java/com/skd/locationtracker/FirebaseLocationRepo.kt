@@ -21,7 +21,11 @@ import com.google.firebase.database.ValueEventListener
  */
 object FirebaseLocationRepo {
 
-    private val db by lazy { FirebaseDatabase.getInstance().reference.child("sessions") }
+    private val db by lazy {
+        FirebaseDatabase.getInstance(
+            "https://locationtracker-92791-default-rtdb.firebaseio.com"
+        ).reference.child("sessions")
+    }
 
     data class LiveLocation(
         val lat: Double = 0.0,
