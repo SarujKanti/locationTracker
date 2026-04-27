@@ -1,10 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Viewer screen — Google Maps style:
+    • Full-screen map
+    • Back FAB  (top-left)
+    • Legend chip  (top-centre, shown after connecting)
+    • Right FAB column: Fit-Both + My-Location  (shown after connecting)
+    • Bottom sheet:
+        – Code-entry panel  (before connecting)
+        – Live-info panel   (after connecting)
+-->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:layout_height="match_parent">
 
     <!-- Full-screen map -->
     <fragment
@@ -13,28 +23,30 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
-    <!-- Back button (top-left) -->
+    <!-- Back FAB (top-left) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabBack"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|start"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="48dp"
+        android:layout_marginTop="52dp"
         android:src="@drawable/ic_arrow_back"
+        android:contentDescription="Back"
         app:backgroundTint="@color/white"
         app:tint="@color/on_surface"
         app:fabSize="mini"
         app:elevation="6dp"/>
 
-    <!-- Legend chip (top-center): You 🔵  |  Sharer 🟠 -->
+    <!-- Legend chip (top-centre): 🔵 You  |  🟠 Sharer -->
     <androidx.cardview.widget.CardView
         android:id="@+id/cardLegend"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="48dp"
+        android:layout_marginTop="52dp"
         android:visibility="gone"
+        tools:visibility="visible"
         app:cardCornerRadius="20dp"
         app:cardElevation="6dp"
         app:cardBackgroundColor="@color/white">
@@ -49,44 +61,27 @@
             android:paddingBottom="8dp"
             android:gravity="center_vertical">
 
-            <!-- Blue dot = You -->
-            <View
-                android:layout_width="10dp"
-                android:layout_height="10dp"
+            <View android:layout_width="10dp" android:layout_height="10dp"
                 android:background="@drawable/bg_tracking_active"
                 android:layout_marginEnd="5dp"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="You"
-                android:textSize="12sp"
-                android:textColor="@color/primary"
-                android:textStyle="bold"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="You" android:textSize="12sp"
+                android:textColor="@color/primary" android:textStyle="bold"/>
 
-            <View
-                android:layout_width="1dp"
-                android:layout_height="16dp"
+            <View android:layout_width="1dp" android:layout_height="16dp"
                 android:background="@color/divider"
-                android:layout_marginStart="10dp"
-                android:layout_marginEnd="10dp"/>
+                android:layout_marginStart="10dp" android:layout_marginEnd="10dp"/>
 
-            <!-- Orange dot = Sharer -->
-            <View
-                android:layout_width="10dp"
-                android:layout_height="10dp"
+            <View android:layout_width="10dp" android:layout_height="10dp"
                 android:background="@drawable/bg_sharer_dot"
                 android:layout_marginEnd="5dp"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Sharer"
-                android:textSize="12sp"
-                android:textColor="#E65100"
-                android:textStyle="bold"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Sharer" android:textSize="12sp"
+                android:textColor="#E65100" android:textStyle="bold"/>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Right-side FABs: My Location + Fit Both -->
+    <!-- Right FAB column: Fit-Both + My-Location (shown after connecting) -->
     <LinearLayout
         android:id="@+id/fabColumn"
         android:layout_width="wrap_content"
@@ -94,23 +89,22 @@
         android:layout_gravity="end|bottom"
         android:orientation="vertical"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="220dp"
-        android:visibility="gone">
+        android:layout_marginBottom="316dp"
+        android:visibility="gone"
+        tools:visibility="visible">
 
-        <!-- Fit Both on screen -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabFitBoth"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
             android:src="@drawable/ic_fit_both"
-            android:contentDescription="Fit both"
+            android:contentDescription="Fit both on screen"
             app:backgroundTint="@color/white"
             app:tint="@color/primary"
             app:fabSize="mini"
             app:elevation="6dp"/>
 
-        <!-- My Location -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabMyLocation"
             android:layout_width="wrap_content"
@@ -123,24 +117,37 @@
             app:elevation="6dp"/>
     </LinearLayout>
 
-    <!-- Code entry card (before connecting) -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/cardCodeEntry"
+    <!-- ───────── Bottom Sheet ──────────────────────────────────────────── -->
+    <LinearLayout
+        android:id="@+id/viewerBottomSheet"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="24dp"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="12dp"
-        app:cardBackgroundColor="@color/white">
+        android:orientation="vertical"
+        android:background="@drawable/bg_bottom_sheet"
+        android:elevation="8dp"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+        app:behavior_peekHeight="280dp"
+        app:behavior_hideable="false"
+        app:behavior_skipCollapsed="false">
 
+        <!-- Drag handle -->
+        <View
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/bg_drag_handle"/>
+
+        <!-- ── CODE-ENTRY PANEL (visible before connecting) ──────────── -->
         <LinearLayout
+            android:id="@+id/panelCodeEntry"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -149,7 +156,7 @@
                 android:textSize="17sp"
                 android:textStyle="bold"
                 android:textColor="@color/on_surface"
-                android:layout_marginBottom="6dp"/>
+                android:layout_marginBottom="4dp"/>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -164,7 +171,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="Session Code (e.g. AB3X9Z2K)"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="14dp"
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 app:boxCornerRadiusTopStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
@@ -195,29 +202,20 @@
                 app:backgroundTint="@color/primary"
                 app:cornerRadius="14dp"/>
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
 
-    <!-- Live info card (after connecting) -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/cardLiveInfo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="24dp"
-        android:visibility="gone"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="12dp"
-        app:cardBackgroundColor="@color/white">
-
+        <!-- ── LIVE-INFO PANEL (visible after connecting) ────────────── -->
         <LinearLayout
+            android:id="@+id/panelLiveInfo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:visibility="gone"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp"
+            tools:visibility="gone">
 
-            <!-- Header -->
+            <!-- Header: title + LIVE badge -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -272,7 +270,8 @@
                         android:text="LIVE"
                         android:textSize="11sp"
                         android:textStyle="bold"
-                        android:textColor="@color/green_active"/>
+                        android:textColor="@color/green_active"
+                        tools:ignore="SmallSp"/>
                 </LinearLayout>
             </LinearLayout>
 
@@ -287,7 +286,7 @@
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="LAT" android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
+                        android:textColor="@color/on_surface_secondary" tools:ignore="SmallSp"/>
                     <TextView android:id="@+id/tvViewerLat" android:layout_width="wrap_content"
                         android:layout_height="wrap_content" android:text="—"
                         android:textSize="13sp" android:textStyle="bold" android:textColor="#E65100"/>
@@ -300,7 +299,7 @@
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="LNG" android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
+                        android:textColor="@color/on_surface_secondary" tools:ignore="SmallSp"/>
                     <TextView android:id="@+id/tvViewerLng" android:layout_width="wrap_content"
                         android:layout_height="wrap_content" android:text="—"
                         android:textSize="13sp" android:textStyle="bold" android:textColor="#E65100"/>
@@ -313,7 +312,7 @@
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="SPEED" android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
+                        android:textColor="@color/on_surface_secondary" tools:ignore="SmallSp"/>
                     <TextView android:id="@+id/tvViewerSpeed" android:layout_width="wrap_content"
                         android:layout_height="wrap_content" android:text="—"
                         android:textSize="13sp" android:textStyle="bold" android:textColor="#E65100"/>
@@ -326,7 +325,7 @@
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="±ACC" android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
+                        android:textColor="@color/on_surface_secondary" tools:ignore="SmallSp"/>
                     <TextView android:id="@+id/tvViewerAccuracy" android:layout_width="wrap_content"
                         android:layout_height="wrap_content" android:text="—"
                         android:textSize="13sp" android:textStyle="bold" android:textColor="#E65100"/>
@@ -337,10 +336,11 @@
                 android:id="@+id/tvViewerUpdated"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
                 android:text="Connecting…"
                 android:textSize="11sp"
-                android:textColor="@color/on_surface_secondary"/>
+                android:textColor="@color/on_surface_secondary"
+                android:layout_marginBottom="12dp"
+                tools:ignore="SmallSp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDisconnect"
@@ -355,6 +355,13 @@
                 app:strokeWidth="1dp"
                 app:cornerRadius="12dp"/>
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+
+        <!-- Navigation-bar spacer — height set in code -->
+        <View
+            android:id="@+id/viewerNavBarSpacer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"/>
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

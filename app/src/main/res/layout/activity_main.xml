@@ -1,72 +1,180 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Google Maps–style layout:
+    • Full-screen map behind everything
+    • My-Location FAB (right side, above bottom sheet)
+    • Bottom sheet:
+        – Peek  → drag-handle + status + 4-column stats row
+        – Expand → + action buttons (Start/Stop, Share/View)
+-->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:layout_height="match_parent">
 
-    <!-- Full-screen Map -->
+    <!-- Full-screen map -->
     <fragment
         android:id="@+id/mapFragment"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
-    <!-- Top status chip -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/cardStatus"
+    <!-- My Location FAB — right side, sits above the peek area -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabMyLocation"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="48dp"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="6dp"
-        app:cardBackgroundColor="@color/white">
+        android:layout_gravity="end|bottom"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="168dp"
+        android:src="@drawable/ic_my_location"
+        android:contentDescription="My location"
+        app:backgroundTint="@color/white"
+        app:tint="@color/primary"
+        app:fabSize="mini"
+        app:elevation="6dp"/>
 
+    <!-- ───────────────── Google Maps–style Bottom Sheet ───────────── -->
+    <LinearLayout
+        android:id="@+id/mainBottomSheet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_bottom_sheet"
+        android:elevation="8dp"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+        app:behavior_peekHeight="148dp"
+        app:behavior_hideable="false"
+        app:behavior_skipCollapsed="false">
+
+        <!-- Drag handle pill -->
+        <View
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_drag_handle"/>
+
+        <!-- ── Row: status name + indicator dot ─────────────────── -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingStart="12dp"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
             android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:gravity="center_vertical">
+            android:paddingBottom="4dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvStatusLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/status_idle"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/on_surface"/>
+
+                <TextView
+                    android:id="@+id/tvLastUpdated"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Waiting for location…"
+                    android:textSize="11sp"
+                    android:textColor="@color/on_surface_secondary"
+                    tools:ignore="SmallSp"/>
+            </LinearLayout>
 
             <View
                 android:id="@+id/statusDot"
-                android:layout_width="10dp"
-                android:layout_height="10dp"
-                android:background="@drawable/bg_tracking_inactive"
-                android:layout_marginEnd="8dp"/>
-
-            <TextView
-                android:id="@+id/tvStatusLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/status_idle"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="@color/on_surface_secondary"
-                tools:ignore="SmallSp"/>
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/bg_tracking_inactive"/>
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
 
-    <!-- Bottom info + control card -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/bottomCard"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginBottom="16dp"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="12dp"
-        app:cardBackgroundColor="@color/white">
+        <!-- ── Stats row (4 columns, always in peek) ────────────── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="16dp">
 
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="LAT" android:textSize="10sp"
+                    android:textColor="@color/on_surface_secondary" android:letterSpacing="0.08"
+                    tools:ignore="SmallSp"/>
+                <TextView android:id="@+id/tvLat" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/value_waiting"
+                    android:textSize="12sp" android:textStyle="bold"
+                    android:textColor="@color/on_surface"/>
+            </LinearLayout>
+
+            <View android:layout_width="1dp" android:layout_height="28dp"
+                android:background="@color/divider" android:layout_gravity="center_vertical"/>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="LNG" android:textSize="10sp"
+                    android:textColor="@color/on_surface_secondary" android:letterSpacing="0.08"
+                    tools:ignore="SmallSp"/>
+                <TextView android:id="@+id/tvLng" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/value_waiting"
+                    android:textSize="12sp" android:textStyle="bold"
+                    android:textColor="@color/on_surface"/>
+            </LinearLayout>
+
+            <View android:layout_width="1dp" android:layout_height="28dp"
+                android:background="@color/divider" android:layout_gravity="center_vertical"/>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="SPEED" android:textSize="10sp"
+                    android:textColor="@color/on_surface_secondary" android:letterSpacing="0.08"
+                    tools:ignore="SmallSp"/>
+                <TextView android:id="@+id/tvSpeed" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/value_waiting"
+                    android:textSize="12sp" android:textStyle="bold"
+                    android:textColor="@color/on_surface"/>
+            </LinearLayout>
+
+            <View android:layout_width="1dp" android:layout_height="28dp"
+                android:background="@color/divider" android:layout_gravity="center_vertical"/>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="±ACC" android:textSize="10sp"
+                    android:textColor="@color/on_surface_secondary" android:letterSpacing="0.08"
+                    tools:ignore="SmallSp"/>
+                <TextView android:id="@+id/tvAccuracy" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/value_waiting"
+                    android:textSize="12sp" android:textStyle="bold"
+                    android:textColor="@color/on_surface"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Divider above action buttons -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider"/>
+
+        <!-- ── Action buttons (revealed when sheet is expanded) ── -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -74,88 +182,21 @@
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
             android:paddingTop="16dp"
-            android:paddingBottom="16dp">
+            android:paddingBottom="12dp">
 
-            <!-- Stats row -->
+            <!-- Start Tracking + Stop -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:layout_marginBottom="10dp">
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/label_latitude" android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true" android:letterSpacing="0.08"/>
-                    <TextView android:id="@+id/tvLat" android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" android:text="@string/value_waiting"
-                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
-                </LinearLayout>
-
-                <View android:layout_width="1dp" android:layout_height="28dp"
-                    android:background="@color/divider" android:layout_gravity="center_vertical"/>
-
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/label_longitude" android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true" android:letterSpacing="0.08"/>
-                    <TextView android:id="@+id/tvLng" android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" android:text="@string/value_waiting"
-                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
-                </LinearLayout>
-
-                <View android:layout_width="1dp" android:layout_height="28dp"
-                    android:background="@color/divider" android:layout_gravity="center_vertical"/>
-
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/label_speed" android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true" android:letterSpacing="0.08"/>
-                    <TextView android:id="@+id/tvSpeed" android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" android:text="@string/value_waiting"
-                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
-                </LinearLayout>
-
-                <View android:layout_width="1dp" android:layout_height="28dp"
-                    android:background="@color/divider" android:layout_gravity="center_vertical"/>
-
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="@string/label_accuracy" android:textSize="10sp"
-                        android:textColor="@color/on_surface_secondary" android:textAllCaps="true" android:letterSpacing="0.08"/>
-                    <TextView android:id="@+id/tvAccuracy" android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" android:text="@string/value_waiting"
-                        android:textSize="13sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
-                </LinearLayout>
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tvLastUpdated"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="12dp"
-                android:text="Waiting for location…"
-                android:textSize="11sp"
-                android:textColor="@color/on_surface_secondary"/>
-
-            <!-- Row 1: Start + Stop -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="8dp">
-
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnStart"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="2"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginEnd="8dp"
                     android:text="@string/start"
                     android:textSize="13sp"
                     android:textStyle="bold"
@@ -178,7 +219,7 @@
                     app:cornerRadius="12dp"/>
             </LinearLayout>
 
-            <!-- Row 2: Share Live + View Live -->
+            <!-- Share Live + View Live -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -189,7 +230,7 @@
                     android:layout_width="0dp"
                     android:layout_height="44dp"
                     android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginEnd="8dp"
                     android:text="Share Live"
                     android:textSize="12sp"
                     android:textStyle="bold"
@@ -214,6 +255,13 @@
                     app:cornerRadius="12dp"/>
             </LinearLayout>
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+
+        <!-- Navigation-bar inset spacer — height set in code -->
+        <View
+            android:id="@+id/navBarSpacer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"/>
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
