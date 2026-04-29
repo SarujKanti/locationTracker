@@ -122,16 +122,26 @@ class ShareSessionActivity : AppCompatActivity() {
         btnStopSharing.setOnClickListener { stopSharingAndExit() }
 
         btnNewCode.setOnClickListener {
+            val oldSessionId = sessionId
+
+            // While broadcasting: nuke the old Firebase node completely so any
+            // receiver holding the previous code sees "Session not found" instead
+            // of a frozen last-known location.
             if (isBroadcasting) {
-                Toast.makeText(
-                    this,
-                    "Stop sharing before generating a new code",
-                    Toast.LENGTH_SHORT
-                ).show()
-                return@setOnClickListener
+                FirebaseLocationRepo.deleteSession(oldSessionId)
+                stopWatchingViewerCount()
             }
+
+            // Generate and persist the new code; LocationService picks it up
+            // automatically on the very next GPS tick (reads SharedPreferences).
             sessionId = LocationSharingManager.resetSessionId(this)
             tvSessionCode.text = sessionId
+
+            // Restart viewer-count listener on the new session node.
+            if (isBroadcasting) {
+                startWatchingViewerCount()
+            }
+
             Toast.makeText(this, "New code generated", Toast.LENGTH_SHORT).show()
         }
 
@@ -208,17 +218,16 @@ class ShareSessionActivity : AppCompatActivity() {
             statusDot.setBackgroundResource(R.drawable.bg_tracking_active)
             layoutStatus.setBackgroundResource(R.drawable.bg_tracking_active)
             cardLiveStats.visibility = View.VISIBLE
-            btnNewCode.isEnabled = false
-            btnNewCode.alpha = 0.4f
         } else {
             tvStatus.text = "Not Broadcasting"
             tvStatus.setTextColor(ContextCompat.getColor(this, R.color.on_surface_secondary))
             statusDot.setBackgroundResource(R.drawable.bg_tracking_inactive)
             layoutStatus.setBackgroundResource(R.drawable.bg_tracking_inactive)
             cardLiveStats.visibility = View.GONE
-            btnNewCode.isEnabled = true
-            btnNewCode.alpha = 1f
         }
+        // "Generate New Code" is always enabled — even during a live broadcast.
+        btnNewCode.isEnabled = true
+        btnNewCode.alpha = 1f
     }
 
     // ── Viewer count ──────────────────────────────────────────────────────────
@@ -278,7 +287,9 @@ class ShareSessionActivity : AppCompatActivity() {
 
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
-        if (isBroadcasting) stopSharingAndExit() else super.onBackPressed()
+        // Back simply navigates away — sharing continues in the background.
+        // Only the explicit "Stop Sharing" button stops the broadcast.
+        super.onBackPressed()
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
