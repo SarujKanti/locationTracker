@@ -13,11 +13,13 @@ import com.google.firebase.database.ValueEventListener
  *     {sessionId}/
  *       lat       : Double
  *       lng       : Double
- *       speed     : Double  (km/h)
- *       accuracy  : Double  (meters)
- *       bearing   : Double  (degrees)
+ *       speed     : Double   (km/h)
+ *       accuracy  : Double   (metres)
+ *       bearing   : Double   (degrees)
  *       timestamp : Long
  *       active    : Boolean
+ *       viewers/             ← presence map; key = viewerId, value = true
+ *         {viewerId} : Boolean
  */
 object FirebaseLocationRepo {
 
@@ -37,15 +39,31 @@ object FirebaseLocationRepo {
         val active: Boolean = true
     )
 
-    /** Push the sharer's current position to Firebase. */
+    // ── Sharer API ────────────────────────────────────────────────────────────
+
+    /**
+     * Updates only the location fields of the session node, leaving the
+     * [viewers] child untouched (using updateChildren instead of setValue).
+     */
     fun pushLocation(sessionId: String, location: LiveLocation) {
-        db.child(sessionId).setValue(location)
+        val updates: Map<String, Any> = mapOf(
+            "lat"       to location.lat,
+            "lng"       to location.lng,
+            "speed"     to location.speed,
+            "accuracy"  to location.accuracy,
+            "bearing"   to location.bearing,
+            "timestamp" to location.timestamp,
+            "active"    to location.active
+        )
+        db.child(sessionId).updateChildren(updates)
     }
 
-    /** Mark the session as inactive (sharer stopped tracking). */
+    /** Mark the session as inactive so all viewers auto-disconnect. */
     fun deactivateSession(sessionId: String) {
         db.child(sessionId).child("active").setValue(false)
     }
+
+    // ── Location listener (viewer) ────────────────────────────────────────────
 
     /**
      * Subscribe to live location updates for [sessionId].
@@ -65,17 +83,62 @@ object FirebaseLocationRepo {
                 val location = snapshot.getValue(LiveLocation::class.java)
                 if (location != null) onUpdate(location)
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                onError(error.message)
-            }
+            override fun onCancelled(error: DatabaseError) = onError(error.message)
         }
         db.child(sessionId).addValueEventListener(listener)
         return listener
     }
 
-    /** Remove a previously registered listener. */
+    /** Remove a previously registered location listener. */
     fun removeListener(sessionId: String, listener: ValueEventListener) {
         db.child(sessionId).removeEventListener(listener)
+    }
+
+    // ── Viewer presence API ───────────────────────────────────────────────────
+
+    /**
+     * Registers the viewer's presence under the session.
+     * An [onDisconnect] handler is attached so Firebase automatically removes
+     * the entry if the viewer's connection drops unexpectedly.
+     */
+    fun addViewerPresence(sessionId: String, viewerId: String) {
+        val ref = db.child(sessionId).child("viewers").child(viewerId)
+        ref.setValue(true)
+        ref.onDisconnect().removeValue()          // auto-clean on network drop
+    }
+
+    /**
+     * Explicitly removes the viewer's presence (called on deliberate disconnect).
+     * Also cancels the onDisconnect handler so it doesn't fire again.
+     */
+    fun removeViewerPresence(sessionId: String, viewerId: String) {
+        val ref = db.child(sessionId).child("viewers").child(viewerId)
+        ref.removeValue()
+        ref.onDisconnect().cancel()
+    }
+
+    // ── Viewer-count listener (sender) ────────────────────────────────────────
+
+    /**
+     * Listens to the number of viewers currently connected to [sessionId].
+     * [onCount] is called with the updated integer every time someone connects
+     * or disconnects.
+     */
+    fun listenToViewerCount(
+        sessionId: String,
+        onCount: (Int) -> Unit
+    ): ValueEventListener {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) =
+                onCount(snapshot.childrenCount.toInt())
+            override fun onCancelled(error: DatabaseError) = onCount(0)
+        }
+        db.child(sessionId).child("viewers").addValueEventListener(listener)
+        return listener
+    }
+
+    /** Remove a viewer-count listener. */
+    fun removeViewerCountListener(sessionId: String, listener: ValueEventListener) {
+        db.child(sessionId).child("viewers").removeEventListener(listener)
     }
 }

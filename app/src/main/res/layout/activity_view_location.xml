@@ -215,7 +215,36 @@
             android:paddingBottom="8dp"
             tools:visibility="gone">
 
-            <!-- Header: title + LIVE badge -->
+            <!-- "Sharing stopped" warning banner (hidden while active) -->
+            <LinearLayout
+                android:id="@+id/bannerSharingStopped"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="10dp"
+                android:layout_marginBottom="10dp"
+                android:background="@drawable/bg_stopped_banner"
+                android:visibility="gone"
+                tools:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📍"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sender stopped sharing — showing last known location"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#E65100"/>
+            </LinearLayout>
+
+            <!-- Header: title + LIVE / STOPPED badge -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -232,7 +261,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Sharer's Live Location"
+                        android:text="Sharer's Location"
                         android:textSize="15sp"
                         android:textStyle="bold"
                         android:textColor="@color/on_surface"/>
@@ -246,8 +275,9 @@
                         android:fontFamily="monospace"/>
                 </LinearLayout>
 
-                <!-- LIVE badge -->
+                <!-- LIVE badge (hidden when stopped) -->
                 <LinearLayout
+                    android:id="@+id/badgeLive"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
@@ -271,6 +301,30 @@
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textColor="@color/green_active"
+                        tools:ignore="SmallSp"/>
+                </LinearLayout>
+
+                <!-- STOPPED badge (shown when sender stops) -->
+                <LinearLayout
+                    android:id="@+id/badgeStopped"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="5dp"
+                    android:paddingBottom="5dp"
+                    android:background="@drawable/bg_stopped_banner"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="STOPPED"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textColor="#E65100"
                         tools:ignore="SmallSp"/>
                 </LinearLayout>
             </LinearLayout>
