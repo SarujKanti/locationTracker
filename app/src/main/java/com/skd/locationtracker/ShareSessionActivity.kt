@@ -17,19 +17,17 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.material.button.MaterialButton
+import com.google.firebase.database.ValueEventListener
 import java.text.SimpleDateFormat
 import java.util.*
 
 /**
  * Share Live Location screen.
  *
- * Broadcasting starts automatically as soon as this screen opens
- * (no "Start Broadcasting" button needed — the intent of opening this
- * screen IS to share). The user can:
- *   • Share the 8-char code + deep link via any installed app
- *   • Copy the code to clipboard
- *   • Stop sharing (marks session inactive in Firebase, finishes screen)
- *   • Generate a new code (only available while not broadcasting)
+ * Broadcasting starts automatically when the screen opens.
+ * The sender can see in real time how many viewers are connected.
+ * Pressing "Stop Sharing" (or back) marks the session inactive so all
+ * viewers are automatically notified and shown the last known location.
  */
 class ShareSessionActivity : AppCompatActivity() {
 
@@ -42,6 +40,7 @@ class ShareSessionActivity : AppCompatActivity() {
     private lateinit var tvBcastLng: TextView
     private lateinit var tvBcastSpeed: TextView
     private lateinit var tvBcastUpdated: TextView
+    private lateinit var tvViewerCount: TextView
     private lateinit var btnStopSharing: MaterialButton
     private lateinit var btnShareVia: MaterialButton
     private lateinit var btnCopyCode: MaterialButton
@@ -50,6 +49,9 @@ class ShareSessionActivity : AppCompatActivity() {
     private var sessionId: String = ""
     private var isBroadcasting = false
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+    /** Firebase listener watching the viewers/ node for this session. */
+    private var viewerCountListener: ValueEventListener? = null
 
     // ── Permission launcher ───────────────────────────────────────────────────
     private val permissionLauncher =
@@ -70,28 +72,28 @@ class ShareSessionActivity : AppCompatActivity() {
     private val locationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != LocationService.ACTION_LOCATION_UPDATE) return
-            val lat     = intent.getDoubleExtra(LocationService.EXTRA_LATITUDE, 0.0)
-            val lng     = intent.getDoubleExtra(LocationService.EXTRA_LONGITUDE, 0.0)
-            val speed   = intent.getFloatExtra(LocationService.EXTRA_SPEED, 0f)
+            val lat      = intent.getDoubleExtra(LocationService.EXTRA_LATITUDE, 0.0)
+            val lng      = intent.getDoubleExtra(LocationService.EXTRA_LONGITUDE, 0.0)
+            val speed    = intent.getFloatExtra(LocationService.EXTRA_SPEED, 0f)
             val accuracy = intent.getFloatExtra(LocationService.EXTRA_ACCURACY, -1f)
-            val bearing = intent.getFloatExtra(LocationService.EXTRA_BEARING, -1f)
+            val bearing  = intent.getFloatExtra(LocationService.EXTRA_BEARING, -1f)
 
-            tvBcastLat.text   = "%.5f°".format(lat)
-            tvBcastLng.text   = "%.5f°".format(lng)
-            tvBcastSpeed.text = "%.1f km/h".format(speed)
+            tvBcastLat.text    = "%.5f°".format(lat)
+            tvBcastLng.text    = "%.5f°".format(lng)
+            tvBcastSpeed.text  = "%.1f km/h".format(speed)
             tvBcastUpdated.text = "Sent at ${timeFormatter.format(Date())}"
 
             if (isBroadcasting) {
                 FirebaseLocationRepo.pushLocation(
                     sessionId,
                     FirebaseLocationRepo.LiveLocation(
-                        lat      = lat,
-                        lng      = lng,
-                        speed    = speed.toDouble(),
-                        accuracy = accuracy.toDouble(),
-                        bearing  = bearing.toDouble(),
+                        lat       = lat,
+                        lng       = lng,
+                        speed     = speed.toDouble(),
+                        accuracy  = accuracy.toDouble(),
+                        bearing   = bearing.toDouble(),
                         timestamp = System.currentTimeMillis(),
-                        active   = true
+                        active    = true
                     )
                 )
             }
@@ -121,7 +123,11 @@ class ShareSessionActivity : AppCompatActivity() {
 
         btnNewCode.setOnClickListener {
             if (isBroadcasting) {
-                Toast.makeText(this, "Stop sharing before generating a new code", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "Stop sharing before generating a new code",
+                    Toast.LENGTH_SHORT
+                ).show()
                 return@setOnClickListener
             }
             sessionId = LocationSharingManager.resetSessionId(this)
@@ -129,10 +135,9 @@ class ShareSessionActivity : AppCompatActivity() {
             Toast.makeText(this, "New code generated", Toast.LENGTH_SHORT).show()
         }
 
-        // Auto-start broadcasting when screen opens
+        // Auto-start broadcasting when the screen opens
         if (LocationSharingManager.isSharing(this)) {
-            // Was already sharing — restore state
-            setBroadcastState(true)
+            setBroadcastState(true)            // restore in-progress session
         } else {
             autoStartBroadcasting()
         }
@@ -148,6 +153,7 @@ class ShareSessionActivity : AppCompatActivity() {
         tvBcastLng      = findViewById(R.id.tvBcastLng)
         tvBcastSpeed    = findViewById(R.id.tvBcastSpeed)
         tvBcastUpdated  = findViewById(R.id.tvBcastUpdated)
+        tvViewerCount   = findViewById(R.id.tvViewerCount)
         btnStopSharing  = findViewById(R.id.btnStopSharing)
         btnShareVia     = findViewById(R.id.btnShareVia)
         btnCopyCode     = findViewById(R.id.btnCopyCode)
@@ -163,7 +169,6 @@ class ShareSessionActivity : AppCompatActivity() {
 
     // ── Broadcasting control ──────────────────────────────────────────────────
 
-    /** Called once on screen open — requests permission then starts broadcasting. */
     private fun autoStartBroadcasting() {
         if (PermissionUtils.hasLocationPermission(this)) {
             startBroadcasting()
@@ -182,13 +187,15 @@ class ShareSessionActivity : AppCompatActivity() {
         ContextCompat.startForegroundService(this, Intent(this, LocationService::class.java))
         LocationSharingManager.setSharing(this, true)
         setBroadcastState(true)
+        startWatchingViewerCount()
     }
 
-    /** Stops broadcasting, marks the session inactive so receivers auto-disconnect. */
+    /** Stops broadcasting, tells Firebase the session is inactive. */
     private fun stopSharingAndExit() {
         stopService(Intent(this, LocationService::class.java))
         FirebaseLocationRepo.deactivateSession(sessionId)
         LocationSharingManager.setSharing(this, false)
+        stopWatchingViewerCount()
         isBroadcasting = false
         finish()
     }
@@ -214,17 +221,36 @@ class ShareSessionActivity : AppCompatActivity() {
         }
     }
 
+    // ── Viewer count ──────────────────────────────────────────────────────────
+
+    /** Listens to the viewers/ node and updates the on-screen count. */
+    private fun startWatchingViewerCount() {
+        stopWatchingViewerCount()   // clear any existing listener first
+        viewerCountListener = FirebaseLocationRepo.listenToViewerCount(sessionId) { count ->
+            runOnUiThread {
+                tvViewerCount.text = count.toString()
+                tvViewerCount.setTextColor(
+                    ContextCompat.getColor(
+                        this,
+                        if (count > 0) R.color.green_active else R.color.on_surface_secondary
+                    )
+                )
+            }
+        }
+    }
+
+    private fun stopWatchingViewerCount() {
+        viewerCountListener?.let {
+            FirebaseLocationRepo.removeViewerCountListener(sessionId, it)
+        }
+        viewerCountListener = null
+    }
+
     // ── Share / copy ──────────────────────────────────────────────────────────
 
-    /**
-     * Shares the code plus a deep link.
-     * If the "Locate Me" app is installed on the recipient's phone,
-     * tapping the link opens the app directly on the View Live screen.
-     * If the app is NOT installed, the Play Store link lets them install it.
-     */
     private fun shareCodeAndLink() {
-        val deepLink   = "locateme://view?code=$sessionId"
-        val storeLink  = "https://play.google.com/store/apps/details?id=${packageName}"
+        val deepLink  = "locateme://view?code=$sessionId"
+        val storeLink = "https://play.google.com/store/apps/details?id=${packageName}"
         val text = buildString {
             appendLine("📍 I'm sharing my live location with you!")
             appendLine()
@@ -248,8 +274,9 @@ class ShareSessionActivity : AppCompatActivity() {
         clipboard.setPrimaryClip(ClipData.newPlainText("Session Code", text))
     }
 
-    // ── Back press — stop sharing and leave ───────────────────────────────────
+    // ── Back press ────────────────────────────────────────────────────────────
 
+    @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         if (isBroadcasting) stopSharingAndExit() else super.onBackPressed()
     }
@@ -266,5 +293,10 @@ class ShareSessionActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         LocalBroadcastManager.getInstance(this).unregisterReceiver(locationReceiver)
+    }
+
+    override fun onDestroy() {
+        stopWatchingViewerCount()
+        super.onDestroy()
     }
 }

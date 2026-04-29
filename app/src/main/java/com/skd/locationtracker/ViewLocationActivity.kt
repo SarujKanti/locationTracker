@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.View
 import android.view.animation.LinearInterpolator
 import android.view.inputmethod.InputMethodManager
@@ -44,12 +45,18 @@ import kotlin.math.*
 
 /**
  * Viewer screen:
- *  🔵 Blue pulsing dot        = viewer's own GPS position   (PulsingMarkerManager)
- *  🟠 Orange animated marker  = sharer's live position       (Firebase)
- *  🔵 Blue polyline           = route from viewer to sharer  (Directions API or straight line)
- *  🟠 Orange polyline         = sharer's historical path
+ *  🔵 Blue pulsing dot        = viewer's own position     (PulsingMarkerManager)
+ *  🟠 Orange marker           = sharer's current position  (Firebase)
+ *  🔵 Blue polyline           = shortest route to sharer   (Directions API / straight-line)
  *
- * Auto-disconnects (with Toast) when the sharer marks the session inactive.
+ * No orange history trail — only the shortest-path route is drawn.
+ *
+ * When the sender stops sharing:
+ *  • Firebase listener is removed immediately
+ *  • Orange marker stays at last known position
+ *  • "STOPPED" badge + warning banner appear
+ *  • Disconnect button becomes "Close"
+ *  • Viewer can still see the last known location on the map
  */
 class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -63,20 +70,18 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     private var myLocationCallback: LocationCallback? = null
     private var myLatLng: LatLng? = null
 
-    // Sharer marker (orange, animated)
+    // Sharer marker
     private var sharerMarker: Marker? = null
     private var sharerLatLng: LatLng? = null
     private var previousSharerLatLng: LatLng? = null
-    private var sharerRoutePolyline: Polyline? = null       // sharer's history (orange)
-    private var directionPolyline: Polyline? = null         // viewer → sharer route (blue)
-    private val sharerRoutePoints = mutableListOf<LatLng>()
+    private var directionPolyline: Polyline? = null     // shortest route viewer → sharer
     private var markerAnimator: ValueAnimator? = null
     private var firstLocationReceived = false
+    private var sharingStopped = false
 
-    // Route fetch rate-limiting: re-fetch at most every 30 s
+    // Route fetch rate-limiting (once per 30 s)
     private var lastRouteFetchMs = 0L
 
-    // Camera
     private enum class CameraMode { FOLLOW_SHARER, FREE }
     private var cameraMode = CameraMode.FOLLOW_SHARER
 
@@ -85,10 +90,14 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     private var currentSessionId: String? = null
     private var pendingCode: String? = null
 
+    /** Stable per-device ID used for viewer presence in Firebase. */
+    private val viewerId: String by lazy {
+        Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+            ?: UUID.randomUUID().toString()
+    }
+
     private val handler = Handler(Looper.getMainLooper())
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-
-    // Maps API key (same key used in Manifest)
     private val mapsApiKey = "AIzaSyCfqOfFyErPEmt5_Xj4yY5x-phF_AwWagE"
 
     // ── UI ───────────────────────────────────────────────────────────────────
@@ -101,6 +110,9 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var btnDisconnect: MaterialButton
     private lateinit var panelCodeEntry: View
     private lateinit var panelLiveInfo: View
+    private lateinit var bannerSharingStopped: View
+    private lateinit var badgeLive: View
+    private lateinit var badgeStopped: View
     private lateinit var tvViewerCode: TextView
     private lateinit var tvViewerLat: TextView
     private lateinit var tvViewerLng: TextView
@@ -126,7 +138,6 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.viewerMapFragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        // Deep-link / extras
         val deepLinkCode = (intent.data?.getQueryParameter("code")
             ?: intent.getStringExtra("code"))?.uppercase()
         if (!deepLinkCode.isNullOrBlank()) {
@@ -144,7 +155,6 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
             connectToSession(code)
         }
 
-        // Expand sheet when code field is focused so Connect button stays visible
         etCode.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
         }
@@ -158,38 +168,40 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun bindViews() {
-        cardLegend       = findViewById(R.id.cardLegend)
-        fabColumn        = findViewById(R.id.fabColumn)
-        fabMyLocation    = findViewById(R.id.fabMyLocation)
-        fabFitBoth       = findViewById(R.id.fabFitBoth)
-        etCode           = findViewById(R.id.etCode)
-        btnConnect       = findViewById(R.id.btnConnect)
-        btnDisconnect    = findViewById(R.id.btnDisconnect)
-        panelCodeEntry   = findViewById(R.id.panelCodeEntry)
-        panelLiveInfo    = findViewById(R.id.panelLiveInfo)
-        tvViewerCode     = findViewById(R.id.tvViewerCode)
-        tvViewerLat      = findViewById(R.id.tvViewerLat)
-        tvViewerLng      = findViewById(R.id.tvViewerLng)
-        tvViewerSpeed    = findViewById(R.id.tvViewerSpeed)
-        tvViewerAccuracy = findViewById(R.id.tvViewerAccuracy)
-        tvViewerUpdated  = findViewById(R.id.tvViewerUpdated)
-        tvDistance       = findViewById(R.id.tvDistance)
-        tvRouteLabel     = findViewById(R.id.tvRouteLabel)
-        navBarSpacer     = findViewById(R.id.viewerNavBarSpacer)
+        cardLegend           = findViewById(R.id.cardLegend)
+        fabColumn            = findViewById(R.id.fabColumn)
+        fabMyLocation        = findViewById(R.id.fabMyLocation)
+        fabFitBoth           = findViewById(R.id.fabFitBoth)
+        etCode               = findViewById(R.id.etCode)
+        btnConnect           = findViewById(R.id.btnConnect)
+        btnDisconnect        = findViewById(R.id.btnDisconnect)
+        panelCodeEntry       = findViewById(R.id.panelCodeEntry)
+        panelLiveInfo        = findViewById(R.id.panelLiveInfo)
+        bannerSharingStopped = findViewById(R.id.bannerSharingStopped)
+        badgeLive            = findViewById(R.id.badgeLive)
+        badgeStopped         = findViewById(R.id.badgeStopped)
+        tvViewerCode         = findViewById(R.id.tvViewerCode)
+        tvViewerLat          = findViewById(R.id.tvViewerLat)
+        tvViewerLng          = findViewById(R.id.tvViewerLng)
+        tvViewerSpeed        = findViewById(R.id.tvViewerSpeed)
+        tvViewerAccuracy     = findViewById(R.id.tvViewerAccuracy)
+        tvViewerUpdated      = findViewById(R.id.tvViewerUpdated)
+        tvDistance           = findViewById(R.id.tvDistance)
+        tvRouteLabel         = findViewById(R.id.tvRouteLabel)
+        navBarSpacer         = findViewById(R.id.viewerNavBarSpacer)
 
         val sheet = findViewById<View>(R.id.viewerBottomSheet)
         bottomSheetBehavior = BottomSheetBehavior.from(sheet)
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
-    /** Handle nav-bar + IME (keyboard) insets so the bottom sheet always clears them. */
     private fun applyWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.viewerBottomSheet)) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.viewerBottomSheet)) { _, insets ->
             val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             val ime    = insets.getInsets(WindowInsetsCompat.Type.ime())
-            // Use whichever is taller so the sheet clears both keyboard and nav bar
-            val bottom = maxOf(navBar.bottom, ime.bottom)
-            navBarSpacer.layoutParams = navBarSpacer.layoutParams.also { it.height = bottom }
+            navBarSpacer.layoutParams = navBarSpacer.layoutParams.also {
+                it.height = maxOf(navBar.bottom, ime.bottom)
+            }
             insets
         }
     }
@@ -228,9 +240,9 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         val cb = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val loc = result.lastLocation ?: return
-                val newLatLng = LatLng(loc.latitude, loc.longitude)
-                myLatLng = newLatLng
-                updateMyDot(newLatLng)
+                val latLng = LatLng(loc.latitude, loc.longitude)
+                myLatLng = latLng
+                updateMyDot(latLng)
             }
         }
         myLocationCallback = cb
@@ -272,7 +284,8 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     // ── Session connect / disconnect ──────────────────────────────────────────
 
     private fun connectToSession(code: String) {
-        currentSessionId = code
+        currentSessionId   = code
+        sharingStopped     = false
         tvViewerCode.text  = "Code: $code"
         tvViewerUpdated.text = "Connecting…"
 
@@ -284,6 +297,9 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
 
         cardLegend.visibility = View.VISIBLE
         fabColumn.visibility  = View.VISIBLE
+
+        // Register presence so the sender knows we're watching
+        FirebaseLocationRepo.addViewerPresence(code, viewerId)
 
         firebaseListener = FirebaseLocationRepo.listenToLocation(
             sessionId = code,
@@ -298,27 +314,44 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun disconnect() {
-        val id = currentSessionId; val li = firebaseListener
-        if (id != null && li != null) FirebaseLocationRepo.removeListener(id, li)
-        firebaseListener = null; currentSessionId = null
-
+        // Remove viewer presence from Firebase
+        currentSessionId?.let { id ->
+            FirebaseLocationRepo.removeViewerPresence(id, viewerId)
+            firebaseListener?.let { FirebaseLocationRepo.removeListener(id, it) }
+        }
+        firebaseListener   = null
+        currentSessionId   = null
+        sharingStopped     = false
         firstLocationReceived = false
         previousSharerLatLng  = null
         sharerLatLng          = null
-        sharerRoutePoints.clear()
-        sharerRoutePolyline?.remove(); sharerRoutePolyline = null
-        directionPolyline?.remove();   directionPolyline   = null
-        sharerMarker?.remove();         sharerMarker        = null
+
+        directionPolyline?.remove(); directionPolyline = null
+        sharerMarker?.remove();      sharerMarker      = null
         markerAnimator?.cancel()
         cameraMode = CameraMode.FOLLOW_SHARER
 
-        panelLiveInfo.visibility  = View.GONE
-        panelCodeEntry.visibility = View.VISIBLE
-        cardLegend.visibility     = View.GONE
-        fabColumn.visibility      = View.GONE
+        // Reset panels
+        bannerSharingStopped.visibility = View.GONE
+        badgeLive.visibility            = View.VISIBLE
+        badgeStopped.visibility         = View.GONE
+        panelLiveInfo.visibility        = View.GONE
+        panelCodeEntry.visibility       = View.VISIBLE
+        cardLegend.visibility           = View.GONE
+        fabColumn.visibility            = View.GONE
         etCode.text?.clear()
-        tvDistance.text   = "—"
+        tvDistance.text         = "—"
         tvRouteLabel.visibility = View.GONE
+
+        // Reset Disconnect button style
+        btnDisconnect.text = "Disconnect"
+        btnDisconnect.setTextColor(ContextCompat.getColor(this, R.color.red_stop))
+        btnDisconnect.backgroundTintList =
+            android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.red_stop_bg))
+        btnDisconnect.strokeColor =
+            android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.red_stop))
 
         bottomSheetBehavior.peekHeight =
             (280 * resources.displayMetrics.density).toInt()
@@ -328,29 +361,58 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     // ── Sharer location updates ───────────────────────────────────────────────
 
     private fun onSharerLocationReceived(location: FirebaseLocationRepo.LiveLocation) {
-        // Sharer stopped — show notice and auto-disconnect
+        // ── Sender stopped ─────────────────────────────────────────────────
         if (!location.active) {
-            tvViewerUpdated.text = "Sharer has stopped sharing their location"
+            if (sharingStopped) return        // already handled
+            sharingStopped = true
+
+            // Stop the Firebase listener — no more updates needed
+            currentSessionId?.let { id ->
+                FirebaseLocationRepo.removeViewerPresence(id, viewerId)
+                firebaseListener?.let { FirebaseLocationRepo.removeListener(id, it) }
+            }
+            firebaseListener = null
+
+            // Remove route polyline — last known position is frozen
+            directionPolyline?.remove(); directionPolyline = null
+            tvRouteLabel.visibility = View.GONE
+
+            // Show stopped UI
+            bannerSharingStopped.visibility = View.VISIBLE
+            badgeLive.visibility            = View.GONE
+            badgeStopped.visibility         = View.VISIBLE
+            tvViewerUpdated.text            = "Sharing stopped"
+
+            // Change Disconnect → Close (grey style)
+            btnDisconnect.text = "Close"
+            btnDisconnect.setTextColor(
+                ContextCompat.getColor(this, R.color.on_surface_secondary))
+            btnDisconnect.backgroundTintList =
+                android.content.res.ColorStateList.valueOf(
+                    ContextCompat.getColor(this, R.color.surface_variant))
+            btnDisconnect.strokeColor =
+                android.content.res.ColorStateList.valueOf(
+                    ContextCompat.getColor(this, R.color.divider))
+
             Toast.makeText(
                 this,
-                "Sharer has stopped sharing their location",
+                "Sender stopped sharing — last known location shown",
                 Toast.LENGTH_LONG
             ).show()
-            handler.postDelayed({ if (!isFinishing) disconnect() }, 3_000)
             return
         }
 
+        // ── Normal update ──────────────────────────────────────────────────
         val newLatLng = LatLng(location.lat, location.lng)
         sharerLatLng = newLatLng
 
         tvViewerLat.text      = "%.5f°".format(location.lat)
         tvViewerLng.text      = "%.5f°".format(location.lng)
         tvViewerSpeed.text    = "%.1f km/h".format(location.speed)
-        tvViewerAccuracy.text = if (location.accuracy > 0) "±%.0fm".format(location.accuracy) else "—"
-        tvViewerUpdated.text  = "Updated ${timeFormatter.format(Date(location.timestamp))}"
-
-        sharerRoutePoints.add(newLatLng)
-        updateSharerRoutePolyline()
+        tvViewerAccuracy.text =
+            if (location.accuracy > 0) "±%.0fm".format(location.accuracy) else "—"
+        tvViewerUpdated.text  =
+            "Updated ${timeFormatter.format(Date(location.timestamp))}"
 
         val from = previousSharerLatLng
         if (!firstLocationReceived || from == null) {
@@ -365,22 +427,22 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         previousSharerLatLng = newLatLng
 
-        // Update distance display and route
+        // Refresh distance label and shortest-path route
         updateDistanceAndRoute()
     }
 
-    // ── Distance + route ──────────────────────────────────────────────────────
+    // ── Distance + shortest-path route ───────────────────────────────────────
 
     private fun updateDistanceAndRoute() {
         val myPos     = myLatLng ?: return
         val sharerPos = sharerLatLng ?: return
 
-        // Always update straight-line distance
+        // Update distance label immediately (no network needed)
         val distKm = haversineKm(myPos, sharerPos)
         tvDistance.text = if (distKm < 1.0) "%.0f m".format(distKm * 1000)
                           else "%.2f km".format(distKm)
 
-        // Rate-limit route API calls to once per 30 seconds
+        // Rate-limit the Directions API to once per 30 s
         val now = System.currentTimeMillis()
         if (now - lastRouteFetchMs < 30_000) return
         lastRouteFetchMs = now
@@ -388,59 +450,51 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         fetchDirectionsRoute(myPos, sharerPos)
     }
 
-    /** Haversine great-circle distance in kilometres. */
     private fun haversineKm(a: LatLng, b: LatLng): Double {
         val R    = 6371.0
-        val lat1 = Math.toRadians(a.latitude)
-        val lat2 = Math.toRadians(b.latitude)
-        val dLat = Math.toRadians(b.latitude - a.latitude)
+        val dLat = Math.toRadians(b.latitude  - a.latitude)
         val dLng = Math.toRadians(b.longitude - a.longitude)
-        val h    = sin(dLat / 2).pow(2) + cos(lat1) * cos(lat2) * sin(dLng / 2).pow(2)
+        val h    = sin(dLat / 2).pow(2) +
+                   cos(Math.toRadians(a.latitude)) * cos(Math.toRadians(b.latitude)) *
+                   sin(dLng / 2).pow(2)
         return 2 * R * asin(sqrt(h))
     }
 
     /**
-     * Calls the Directions API in a background thread.
-     * On success → draws road route (blue polyline).
-     * On failure → falls back to a dashed straight geodesic line.
+     * Fetches the road route from the Directions API in a background thread.
+     * Falls back to a dashed straight-line geodesic if the API is unavailable.
      */
     private fun fetchDirectionsRoute(from: LatLng, to: LatLng) {
         Thread {
-            val routePoints = try {
+            val points = try {
                 val urlStr = "https://maps.googleapis.com/maps/api/directions/json" +
                     "?origin=${from.latitude},${from.longitude}" +
                     "&destination=${to.latitude},${to.longitude}" +
                     "&key=$mapsApiKey"
                 val conn = URL(urlStr).openConnection() as HttpURLConnection
-                conn.connectTimeout = 8_000
-                conn.readTimeout    = 8_000
+                conn.connectTimeout = 8_000; conn.readTimeout = 8_000
                 val json = conn.inputStream.bufferedReader().readText()
                 conn.disconnect()
                 parseDirectionsResponse(json)
-            } catch (_: Exception) {
-                emptyList()
-            }
+            } catch (_: Exception) { emptyList() }
 
             runOnUiThread {
+                if (!::googleMap.isInitialized || sharingStopped) return@runOnUiThread
                 directionPolyline?.remove()
-                if (!::googleMap.isInitialized) return@runOnUiThread
-
-                if (routePoints.isNotEmpty()) {
-                    // Actual road route
+                if (points.isNotEmpty()) {
                     directionPolyline = googleMap.addPolyline(
                         PolylineOptions()
-                            .addAll(routePoints)
+                            .addAll(points)
                             .color(Color.parseColor("#1565C0"))
                             .width(6f)
-                            .startCap(RoundCap())
-                            .endCap(RoundCap())
+                            .startCap(RoundCap()).endCap(RoundCap())
                             .jointType(JointType.ROUND)
                             .zIndex(0.5f)
                     )
                     tvRouteLabel.text       = "Road route shown"
                     tvRouteLabel.visibility = View.VISIBLE
                 } else {
-                    // Fallback: dashed straight line
+                    // Dashed straight line as fallback
                     directionPolyline = googleMap.addPolyline(
                         PolylineOptions()
                             .add(from, to)
@@ -450,14 +504,13 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
                             .geodesic(true)
                             .zIndex(0.5f)
                     )
-                    tvRouteLabel.text       = "Straight-line route shown"
+                    tvRouteLabel.text       = "Straight-line route"
                     tvRouteLabel.visibility = View.VISIBLE
                 }
             }
         }.start()
     }
 
-    /** Parses the Directions API JSON and returns decoded polyline points. */
     private fun parseDirectionsResponse(json: String): List<LatLng> {
         return try {
             val obj = JSONObject(json)
@@ -467,12 +520,9 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
                 .getJSONObject("overview_polyline")
                 .getString("points")
             decodePolyline(encoded)
-        } catch (_: Exception) {
-            emptyList()
-        }
+        } catch (_: Exception) { emptyList() }
     }
 
-    /** Standard Google polyline decoding algorithm. */
     private fun decodePolyline(encoded: String): List<LatLng> {
         val result = mutableListOf<LatLng>()
         var index = 0; val len = encoded.length
@@ -529,31 +579,16 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         val bmp  = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val cvs  = android.graphics.Canvas(bmp)
         val cx = size / 2f; val cy = size / 2f; val r = size / 2f
-        fun paint(c: Int) = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = c }
-        cvs.drawCircle(cx, cy, r * 0.95f, paint(Color.parseColor("#33E65100")))
-        cvs.drawCircle(cx, cy, r * 0.70f, paint(Color.WHITE))
-        cvs.drawCircle(cx, cy, r * 0.55f, paint(Color.parseColor("#E65100")))
-        cvs.drawCircle(cx, cy - r * 0.18f, r * 0.16f, paint(Color.WHITE))
+        fun p(c: Int) = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = c }
+        cvs.drawCircle(cx, cy, r * 0.95f, p(Color.parseColor("#33E65100")))
+        cvs.drawCircle(cx, cy, r * 0.70f, p(Color.WHITE))
+        cvs.drawCircle(cx, cy, r * 0.55f, p(Color.parseColor("#E65100")))
+        cvs.drawCircle(cx, cy - r * 0.18f, r * 0.16f, p(Color.WHITE))
         cvs.drawArc(
             android.graphics.RectF(cx - r * 0.28f, cy - r * 0.05f, cx + r * 0.28f, cy + r * 0.3f),
-            0f, 180f, true, paint(Color.WHITE)
+            0f, 180f, true, p(Color.WHITE)
         )
         return bmp
-    }
-
-    private fun updateSharerRoutePolyline() {
-        sharerRoutePolyline?.remove()
-        if (sharerRoutePoints.size < 2) return
-        sharerRoutePolyline = googleMap.addPolyline(
-            PolylineOptions()
-                .addAll(sharerRoutePoints)
-                .color(Color.parseColor("#E65100"))
-                .width(7f)
-                .startCap(RoundCap())
-                .endCap(RoundCap())
-                .jointType(JointType.ROUND)
-                .geodesic(true)
-        )
     }
 
     // ── FAB actions ───────────────────────────────────────────────────────────
@@ -599,23 +634,18 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    override fun onResume() {
-        super.onResume()
-        myPulsingMgr?.start()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        myPulsingMgr?.stop()
-    }
+    override fun onResume()  { super.onResume();  myPulsingMgr?.start() }
+    override fun onPause()   { super.onPause();   myPulsingMgr?.stop()  }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         markerAnimator?.cancel()
         myPulsingMgr?.stop()
         stopViewerLocationUpdates()
-        val id = currentSessionId; val li = firebaseListener
-        if (id != null && li != null) FirebaseLocationRepo.removeListener(id, li)
+        currentSessionId?.let { id ->
+            if (!sharingStopped) FirebaseLocationRepo.removeViewerPresence(id, viewerId)
+            firebaseListener?.let { FirebaseLocationRepo.removeListener(id, it) }
+        }
         super.onDestroy()
     }
 
