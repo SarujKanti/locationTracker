@@ -63,6 +63,16 @@ object FirebaseLocationRepo {
         db.child(sessionId).child("active").setValue(false)
     }
 
+    /**
+     * Completely removes the session node from Firebase.
+     * Used when the sender generates a new code while broadcasting — the old
+     * node is deleted so viewers with the previous code see "Session not found"
+     * instead of a frozen last-known location.
+     */
+    fun deleteSession(sessionId: String) {
+        db.child(sessionId).removeValue()
+    }
+
     // ── Location listener (viewer) ────────────────────────────────────────────
 
     /**
