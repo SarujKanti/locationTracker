@@ -1,15 +1,18 @@
 package com.skd.locationtracker
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -18,9 +21,15 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Screen for the person who wants to SHARE their live location.
- * Shows a session code, lets them start/stop broadcasting,
- * and receives location updates from LocationService via LocalBroadcast.
+ * Share Live Location screen.
+ *
+ * Broadcasting starts automatically as soon as this screen opens
+ * (no "Start Broadcasting" button needed — the intent of opening this
+ * screen IS to share). The user can:
+ *   • Share the 8-char code + deep link via any installed app
+ *   • Copy the code to clipboard
+ *   • Stop sharing (marks session inactive in Firebase, finishes screen)
+ *   • Generate a new code (only available while not broadcasting)
  */
 class ShareSessionActivity : AppCompatActivity() {
 
@@ -33,7 +42,7 @@ class ShareSessionActivity : AppCompatActivity() {
     private lateinit var tvBcastLng: TextView
     private lateinit var tvBcastSpeed: TextView
     private lateinit var tvBcastUpdated: TextView
-    private lateinit var btnToggleBroadcast: MaterialButton
+    private lateinit var btnStopSharing: MaterialButton
     private lateinit var btnShareVia: MaterialButton
     private lateinit var btnCopyCode: MaterialButton
     private lateinit var btnNewCode: MaterialButton
@@ -42,37 +51,54 @@ class ShareSessionActivity : AppCompatActivity() {
     private var isBroadcasting = false
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
+    // ── Permission launcher ───────────────────────────────────────────────────
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+            if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
+                startBroadcasting()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Location permission is required to share your location",
+                    Toast.LENGTH_LONG
+                ).show()
+                finish()
+            }
+        }
+
+    // ── Location broadcast receiver ───────────────────────────────────────────
     private val locationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != LocationService.ACTION_LOCATION_UPDATE) return
-            val lat = intent.getDoubleExtra(LocationService.EXTRA_LATITUDE, 0.0)
-            val lng = intent.getDoubleExtra(LocationService.EXTRA_LONGITUDE, 0.0)
-            val speed = intent.getFloatExtra(LocationService.EXTRA_SPEED, 0f)
+            val lat     = intent.getDoubleExtra(LocationService.EXTRA_LATITUDE, 0.0)
+            val lng     = intent.getDoubleExtra(LocationService.EXTRA_LONGITUDE, 0.0)
+            val speed   = intent.getFloatExtra(LocationService.EXTRA_SPEED, 0f)
             val accuracy = intent.getFloatExtra(LocationService.EXTRA_ACCURACY, -1f)
             val bearing = intent.getFloatExtra(LocationService.EXTRA_BEARING, -1f)
 
-            // Update local stats UI
-            tvBcastLat.text = "%.5f°".format(lat)
-            tvBcastLng.text = "%.5f°".format(lng)
+            tvBcastLat.text   = "%.5f°".format(lat)
+            tvBcastLng.text   = "%.5f°".format(lng)
             tvBcastSpeed.text = "%.1f km/h".format(speed)
             tvBcastUpdated.text = "Sent at ${timeFormatter.format(Date())}"
 
-            // Push to Firebase so viewers see live location
             if (isBroadcasting) {
                 FirebaseLocationRepo.pushLocation(
                     sessionId,
                     FirebaseLocationRepo.LiveLocation(
-                        lat = lat, lng = lng,
-                        speed = speed.toDouble(),
+                        lat      = lat,
+                        lng      = lng,
+                        speed    = speed.toDouble(),
                         accuracy = accuracy.toDouble(),
-                        bearing = bearing.toDouble(),
+                        bearing  = bearing.toDouble(),
                         timestamp = System.currentTimeMillis(),
-                        active = true
+                        active   = true
                     )
                 )
             }
         }
     }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,70 +110,87 @@ class ShareSessionActivity : AppCompatActivity() {
         sessionId = LocationSharingManager.getOrCreateSessionId(this)
         tvSessionCode.text = sessionId
 
-        // Restore state if was broadcasting
-        if (LocationSharingManager.isSharing(this)) {
-            setBroadcastState(true)
-        }
-
         btnCopyCode.setOnClickListener {
             copyToClipboard(sessionId)
             Toast.makeText(this, "Code copied!", Toast.LENGTH_SHORT).show()
         }
 
-        btnShareVia.setOnClickListener { shareCodeViaIntent() }
+        btnShareVia.setOnClickListener { shareCodeAndLink() }
 
-        btnToggleBroadcast.setOnClickListener {
-            if (isBroadcasting) stopBroadcasting() else startBroadcasting()
-        }
+        btnStopSharing.setOnClickListener { stopSharingAndExit() }
 
         btnNewCode.setOnClickListener {
             if (isBroadcasting) {
-                Toast.makeText(this, "Stop broadcasting before generating a new code", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Stop sharing before generating a new code", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             sessionId = LocationSharingManager.resetSessionId(this)
             tvSessionCode.text = sessionId
             Toast.makeText(this, "New code generated", Toast.LENGTH_SHORT).show()
         }
+
+        // Auto-start broadcasting when screen opens
+        if (LocationSharingManager.isSharing(this)) {
+            // Was already sharing — restore state
+            setBroadcastState(true)
+        } else {
+            autoStartBroadcasting()
+        }
     }
 
     private fun bindViews() {
-        tvSessionCode = findViewById(R.id.tvSessionCode)
-        tvStatus = findViewById(R.id.tvStatus)
-        statusDot = findViewById(R.id.statusDot)
-        layoutStatus = findViewById(R.id.layoutStatus)
-        cardLiveStats = findViewById(R.id.cardLiveStats)
-        tvBcastLat = findViewById(R.id.tvBcastLat)
-        tvBcastLng = findViewById(R.id.tvBcastLng)
-        tvBcastSpeed = findViewById(R.id.tvBcastSpeed)
-        tvBcastUpdated = findViewById(R.id.tvBcastUpdated)
-        btnToggleBroadcast = findViewById(R.id.btnToggleBroadcast)
-        btnShareVia = findViewById(R.id.btnShareVia)
-        btnCopyCode = findViewById(R.id.btnCopyCode)
-        btnNewCode = findViewById(R.id.btnNewCode)
+        tvSessionCode   = findViewById(R.id.tvSessionCode)
+        tvStatus        = findViewById(R.id.tvStatus)
+        statusDot       = findViewById(R.id.statusDot)
+        layoutStatus    = findViewById(R.id.layoutStatus)
+        cardLiveStats   = findViewById(R.id.cardLiveStats)
+        tvBcastLat      = findViewById(R.id.tvBcastLat)
+        tvBcastLng      = findViewById(R.id.tvBcastLng)
+        tvBcastSpeed    = findViewById(R.id.tvBcastSpeed)
+        tvBcastUpdated  = findViewById(R.id.tvBcastUpdated)
+        btnStopSharing  = findViewById(R.id.btnStopSharing)
+        btnShareVia     = findViewById(R.id.btnShareVia)
+        btnCopyCode     = findViewById(R.id.btnCopyCode)
+        btnNewCode      = findViewById(R.id.btnNewCode)
     }
 
     private fun setupToolbar() {
-        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        val toolbar =
+            findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
     }
 
-    private fun startBroadcasting() {
-        if (!PermissionUtils.hasLocationPermission(this)) {
-            Toast.makeText(this, "Location permission required", Toast.LENGTH_SHORT).show()
-            return
+    // ── Broadcasting control ──────────────────────────────────────────────────
+
+    /** Called once on screen open — requests permission then starts broadcasting. */
+    private fun autoStartBroadcasting() {
+        if (PermissionUtils.hasLocationPermission(this)) {
+            startBroadcasting()
+        } else {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
         }
+    }
+
+    private fun startBroadcasting() {
+        if (!PermissionUtils.hasLocationPermission(this)) return
         ContextCompat.startForegroundService(this, Intent(this, LocationService::class.java))
         LocationSharingManager.setSharing(this, true)
         setBroadcastState(true)
     }
 
-    private fun stopBroadcasting() {
+    /** Stops broadcasting, marks the session inactive so receivers auto-disconnect. */
+    private fun stopSharingAndExit() {
         stopService(Intent(this, LocationService::class.java))
         FirebaseLocationRepo.deactivateSession(sessionId)
         LocationSharingManager.setSharing(this, false)
-        setBroadcastState(false)
+        isBroadcasting = false
+        finish()
     }
 
     private fun setBroadcastState(active: Boolean) {
@@ -158,34 +201,46 @@ class ShareSessionActivity : AppCompatActivity() {
             statusDot.setBackgroundResource(R.drawable.bg_tracking_active)
             layoutStatus.setBackgroundResource(R.drawable.bg_tracking_active)
             cardLiveStats.visibility = View.VISIBLE
-            btnToggleBroadcast.text = "Stop Broadcasting"
-            btnToggleBroadcast.setTextColor(ContextCompat.getColor(this, R.color.red_stop))
-            btnToggleBroadcast.setBackgroundColor(0)
-            btnToggleBroadcast.backgroundTintList =
-                android.content.res.ColorStateList.valueOf(
-                    ContextCompat.getColor(this, R.color.red_stop_bg)
-                )
-            btnToggleBroadcast.strokeColor =
-                android.content.res.ColorStateList.valueOf(
-                    ContextCompat.getColor(this, R.color.red_stop)
-                )
+            btnNewCode.isEnabled = false
+            btnNewCode.alpha = 0.4f
         } else {
             tvStatus.text = "Not Broadcasting"
             tvStatus.setTextColor(ContextCompat.getColor(this, R.color.on_surface_secondary))
             statusDot.setBackgroundResource(R.drawable.bg_tracking_inactive)
             layoutStatus.setBackgroundResource(R.drawable.bg_tracking_inactive)
             cardLiveStats.visibility = View.GONE
-            btnToggleBroadcast.text = "Start Broadcasting"
-            btnToggleBroadcast.setTextColor(ContextCompat.getColor(this, R.color.green_active))
-            btnToggleBroadcast.backgroundTintList =
-                android.content.res.ColorStateList.valueOf(
-                    ContextCompat.getColor(this, R.color.green_active_bg)
-                )
-            btnToggleBroadcast.strokeColor =
-                android.content.res.ColorStateList.valueOf(
-                    ContextCompat.getColor(this, R.color.green_active)
-                )
+            btnNewCode.isEnabled = true
+            btnNewCode.alpha = 1f
         }
+    }
+
+    // ── Share / copy ──────────────────────────────────────────────────────────
+
+    /**
+     * Shares the code plus a deep link.
+     * If the "Locate Me" app is installed on the recipient's phone,
+     * tapping the link opens the app directly on the View Live screen.
+     * If the app is NOT installed, the Play Store link lets them install it.
+     */
+    private fun shareCodeAndLink() {
+        val deepLink   = "locateme://view?code=$sessionId"
+        val storeLink  = "https://play.google.com/store/apps/details?id=${packageName}"
+        val text = buildString {
+            appendLine("📍 I'm sharing my live location with you!")
+            appendLine()
+            appendLine("🔑 Code: $sessionId")
+            appendLine()
+            appendLine("👆 Tap to open directly in the Locate Me app:")
+            appendLine(deepLink)
+            appendLine()
+            appendLine("📲 Don't have the app? Install it free:")
+            append(storeLink)
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        startActivity(Intent.createChooser(intent, "Share live location via"))
     }
 
     private fun copyToClipboard(text: String) {
@@ -193,16 +248,13 @@ class ShareSessionActivity : AppCompatActivity() {
         clipboard.setPrimaryClip(ClipData.newPlainText("Session Code", text))
     }
 
-    private fun shareCodeViaIntent() {
-        val text = "📍 I'm sharing my live location with you!\n\n" +
-                "Open the \"Locate Me\" app → tap \"View Live\" → enter this code:\n\n" +
-                "🔑  $sessionId"
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
-        startActivity(Intent.createChooser(intent, "Share live location via"))
+    // ── Back press — stop sharing and leave ───────────────────────────────────
+
+    override fun onBackPressed() {
+        if (isBroadcasting) stopSharingAndExit() else super.onBackPressed()
     }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onResume() {
         super.onResume()

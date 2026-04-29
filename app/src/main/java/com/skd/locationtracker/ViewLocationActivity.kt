@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.animation.LinearInterpolator
 import android.view.inputmethod.InputMethodManager
@@ -33,24 +35,28 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.database.ValueEventListener
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.*
 
 /**
- * Viewer screen — shows:
- *  🔵 Blue pulsing dot   = viewer's own GPS position  (PulsingMarkerManager)
- *  🟠 Orange animated    = sharer's live position      (from Firebase)
+ * Viewer screen:
+ *  🔵 Blue pulsing dot        = viewer's own GPS position   (PulsingMarkerManager)
+ *  🟠 Orange animated marker  = sharer's live position       (Firebase)
+ *  🔵 Blue polyline           = route from viewer to sharer  (Directions API or straight line)
+ *  🟠 Orange polyline         = sharer's historical path
  *
- * Bottom sheet:
- *   Before connect → code-entry panel (peek = full form)
- *   After connect  → live-info panel  (peek = stats row)
+ * Auto-disconnects (with Toast) when the sharer marks the session inactive.
  */
 class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
 
     // ── Map ──────────────────────────────────────────────────────────────────
     private lateinit var googleMap: GoogleMap
 
-    // Viewer's own location — pulsing blue dot
+    // Viewer's own pulsing blue dot
     private var myMarker: Marker? = null
     private var myPulsingMgr: PulsingMarkerManager? = null
     private lateinit var fusedClient: FusedLocationProviderClient
@@ -61,10 +67,14 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     private var sharerMarker: Marker? = null
     private var sharerLatLng: LatLng? = null
     private var previousSharerLatLng: LatLng? = null
-    private var routePolyline: Polyline? = null
-    private val routePoints = mutableListOf<LatLng>()
+    private var sharerRoutePolyline: Polyline? = null       // sharer's history (orange)
+    private var directionPolyline: Polyline? = null         // viewer → sharer route (blue)
+    private val sharerRoutePoints = mutableListOf<LatLng>()
     private var markerAnimator: ValueAnimator? = null
     private var firstLocationReceived = false
+
+    // Route fetch rate-limiting: re-fetch at most every 30 s
+    private var lastRouteFetchMs = 0L
 
     // Camera
     private enum class CameraMode { FOLLOW_SHARER, FREE }
@@ -75,7 +85,11 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     private var currentSessionId: String? = null
     private var pendingCode: String? = null
 
+    private val handler = Handler(Looper.getMainLooper())
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+    // Maps API key (same key used in Manifest)
+    private val mapsApiKey = "AIzaSyCfqOfFyErPEmt5_Xj4yY5x-phF_AwWagE"
 
     // ── UI ───────────────────────────────────────────────────────────────────
     private lateinit var cardLegend: CardView
@@ -93,6 +107,8 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var tvViewerSpeed: TextView
     private lateinit var tvViewerAccuracy: TextView
     private lateinit var tvViewerUpdated: TextView
+    private lateinit var tvDistance: TextView
+    private lateinit var tvRouteLabel: TextView
     private lateinit var navBarSpacer: View
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
 
@@ -128,9 +144,14 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
             connectToSession(code)
         }
 
-        btnDisconnect.setOnClickListener         { disconnect() }
-        fabMyLocation.setOnClickListener         { centreOnMe() }
-        fabFitBoth.setOnClickListener            { fitBoth() }
+        // Expand sheet when code field is focused so Connect button stays visible
+        etCode.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+        }
+
+        btnDisconnect.setOnClickListener            { disconnect() }
+        fabMyLocation.setOnClickListener             { centreOnMe() }
+        fabFitBoth.setOnClickListener                { fitBoth() }
         findViewById<FloatingActionButton>(R.id.fabBack).setOnClickListener {
             onBackPressedDispatcher.onBackPressed()
         }
@@ -152,6 +173,8 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         tvViewerSpeed    = findViewById(R.id.tvViewerSpeed)
         tvViewerAccuracy = findViewById(R.id.tvViewerAccuracy)
         tvViewerUpdated  = findViewById(R.id.tvViewerUpdated)
+        tvDistance       = findViewById(R.id.tvDistance)
+        tvRouteLabel     = findViewById(R.id.tvRouteLabel)
         navBarSpacer     = findViewById(R.id.viewerNavBarSpacer)
 
         val sheet = findViewById<View>(R.id.viewerBottomSheet)
@@ -159,10 +182,14 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
+    /** Handle nav-bar + IME (keyboard) insets so the bottom sheet always clears them. */
     private fun applyWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.viewerBottomSheet)) { _, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.viewerBottomSheet)) { v, insets ->
             val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            navBarSpacer.layoutParams = navBarSpacer.layoutParams.also { it.height = navBar.bottom }
+            val ime    = insets.getInsets(WindowInsetsCompat.Type.ime())
+            // Use whichever is taller so the sheet clears both keyboard and nav bar
+            val bottom = maxOf(navBar.bottom, ime.bottom)
+            navBarSpacer.layoutParams = navBarSpacer.layoutParams.also { it.height = bottom }
             insets
         }
     }
@@ -174,34 +201,29 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap.uiSettings.apply {
             isZoomControlsEnabled     = false
             isCompassEnabled          = true
-            isMyLocationButtonEnabled = false   // own FAB used instead
+            isMyLocationButtonEnabled = false
         }
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(20.0, 78.0), 4f))
 
-        // Start tracking viewer's own location for Fit-Both + pulsing blue dot
         startViewerLocationUpdates()
 
-        // Manual pan → free camera
         googleMap.setOnCameraMoveStartedListener { reason ->
             if (reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE)
                 cameraMode = CameraMode.FREE
         }
 
-        // Auto-connect if launched from deep-link
         pendingCode?.let { code ->
             pendingCode = null
             connectToSession(code)
         }
     }
 
-    // ── Viewer's own location (blue pulsing dot) ──────────────────────────────
+    // ── Viewer's own pulsing blue dot ─────────────────────────────────────────
 
     private fun startViewerLocationUpdates() {
         if (!hasLocationPermission()) return
-
         val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 5_000)
-            .setMinUpdateIntervalMillis(3_000)
-            .build()
+            .setMinUpdateIntervalMillis(3_000).build()
 
         val cb = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
@@ -219,22 +241,12 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    /**
-     * Places / moves the pulsing blue dot representing the viewer's own position.
-     * First call: creates the marker and starts PulsingMarkerManager.
-     * Subsequent calls: just updates position (pulse keeps running).
-     */
     private fun updateMyDot(latLng: LatLng) {
         if (!::googleMap.isInitialized) return
         val existing = myMarker
         if (existing == null) {
-            // First fix — create marker + start pulsing
             val marker = googleMap.addMarker(
-                MarkerOptions()
-                    .position(latLng)
-                    .anchor(0.5f, 0.5f)
-                    .flat(true)
-                    .zIndex(1f)
+                MarkerOptions().position(latLng).anchor(0.5f, 0.5f).flat(true).zIndex(1f)
             ) ?: return
             myMarker = marker
             myPulsingMgr = PulsingMarkerManager(
@@ -244,7 +256,6 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
                 ringColor = Color.parseColor("#1565C0")
             ).also { it.start() }
         } else {
-            // Subsequent fixes — move the marker; pulse icon keeps updating
             existing.position = latLng
         }
     }
@@ -262,14 +273,11 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun connectToSession(code: String) {
         currentSessionId = code
-        tvViewerCode.text = "Code: $code"
+        tvViewerCode.text  = "Code: $code"
         tvViewerUpdated.text = "Connecting…"
 
-        // Switch panel inside the bottom sheet
         panelCodeEntry.visibility = View.GONE
         panelLiveInfo.visibility  = View.VISIBLE
-
-        // Adjust sheet peek to the stats-row height (~190dp)
         bottomSheetBehavior.peekHeight =
             (190 * resources.displayMetrics.density).toInt()
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
@@ -297,20 +305,21 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         firstLocationReceived = false
         previousSharerLatLng  = null
         sharerLatLng          = null
-        routePoints.clear()
-        routePolyline?.remove(); routePolyline = null
-        sharerMarker?.remove();  sharerMarker  = null
+        sharerRoutePoints.clear()
+        sharerRoutePolyline?.remove(); sharerRoutePolyline = null
+        directionPolyline?.remove();   directionPolyline   = null
+        sharerMarker?.remove();         sharerMarker        = null
         markerAnimator?.cancel()
         cameraMode = CameraMode.FOLLOW_SHARER
 
-        // Restore code-entry panel
         panelLiveInfo.visibility  = View.GONE
         panelCodeEntry.visibility = View.VISIBLE
         cardLegend.visibility     = View.GONE
         fabColumn.visibility      = View.GONE
         etCode.text?.clear()
+        tvDistance.text   = "—"
+        tvRouteLabel.visibility = View.GONE
 
-        // Reset sheet peek to code-entry height
         bottomSheetBehavior.peekHeight =
             (280 * resources.displayMetrics.density).toInt()
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
@@ -319,6 +328,18 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     // ── Sharer location updates ───────────────────────────────────────────────
 
     private fun onSharerLocationReceived(location: FirebaseLocationRepo.LiveLocation) {
+        // Sharer stopped — show notice and auto-disconnect
+        if (!location.active) {
+            tvViewerUpdated.text = "Sharer has stopped sharing their location"
+            Toast.makeText(
+                this,
+                "Sharer has stopped sharing their location",
+                Toast.LENGTH_LONG
+            ).show()
+            handler.postDelayed({ if (!isFinishing) disconnect() }, 3_000)
+            return
+        }
+
         val newLatLng = LatLng(location.lat, location.lng)
         sharerLatLng = newLatLng
 
@@ -326,11 +347,10 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         tvViewerLng.text      = "%.5f°".format(location.lng)
         tvViewerSpeed.text    = "%.1f km/h".format(location.speed)
         tvViewerAccuracy.text = if (location.accuracy > 0) "±%.0fm".format(location.accuracy) else "—"
-        tvViewerUpdated.text  = if (!location.active) "Sharer stopped broadcasting"
-                                else "Updated ${timeFormatter.format(Date(location.timestamp))}"
+        tvViewerUpdated.text  = "Updated ${timeFormatter.format(Date(location.timestamp))}"
 
-        routePoints.add(newLatLng)
-        updateRoutePolyline()
+        sharerRoutePoints.add(newLatLng)
+        updateSharerRoutePolyline()
 
         val from = previousSharerLatLng
         if (!firstLocationReceived || from == null) {
@@ -344,6 +364,129 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
                 googleMap.animateCamera(CameraUpdateFactory.newLatLng(newLatLng), 800, null)
         }
         previousSharerLatLng = newLatLng
+
+        // Update distance display and route
+        updateDistanceAndRoute()
+    }
+
+    // ── Distance + route ──────────────────────────────────────────────────────
+
+    private fun updateDistanceAndRoute() {
+        val myPos     = myLatLng ?: return
+        val sharerPos = sharerLatLng ?: return
+
+        // Always update straight-line distance
+        val distKm = haversineKm(myPos, sharerPos)
+        tvDistance.text = if (distKm < 1.0) "%.0f m".format(distKm * 1000)
+                          else "%.2f km".format(distKm)
+
+        // Rate-limit route API calls to once per 30 seconds
+        val now = System.currentTimeMillis()
+        if (now - lastRouteFetchMs < 30_000) return
+        lastRouteFetchMs = now
+
+        fetchDirectionsRoute(myPos, sharerPos)
+    }
+
+    /** Haversine great-circle distance in kilometres. */
+    private fun haversineKm(a: LatLng, b: LatLng): Double {
+        val R    = 6371.0
+        val lat1 = Math.toRadians(a.latitude)
+        val lat2 = Math.toRadians(b.latitude)
+        val dLat = Math.toRadians(b.latitude - a.latitude)
+        val dLng = Math.toRadians(b.longitude - a.longitude)
+        val h    = sin(dLat / 2).pow(2) + cos(lat1) * cos(lat2) * sin(dLng / 2).pow(2)
+        return 2 * R * asin(sqrt(h))
+    }
+
+    /**
+     * Calls the Directions API in a background thread.
+     * On success → draws road route (blue polyline).
+     * On failure → falls back to a dashed straight geodesic line.
+     */
+    private fun fetchDirectionsRoute(from: LatLng, to: LatLng) {
+        Thread {
+            val routePoints = try {
+                val urlStr = "https://maps.googleapis.com/maps/api/directions/json" +
+                    "?origin=${from.latitude},${from.longitude}" +
+                    "&destination=${to.latitude},${to.longitude}" +
+                    "&key=$mapsApiKey"
+                val conn = URL(urlStr).openConnection() as HttpURLConnection
+                conn.connectTimeout = 8_000
+                conn.readTimeout    = 8_000
+                val json = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                parseDirectionsResponse(json)
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+            runOnUiThread {
+                directionPolyline?.remove()
+                if (!::googleMap.isInitialized) return@runOnUiThread
+
+                if (routePoints.isNotEmpty()) {
+                    // Actual road route
+                    directionPolyline = googleMap.addPolyline(
+                        PolylineOptions()
+                            .addAll(routePoints)
+                            .color(Color.parseColor("#1565C0"))
+                            .width(6f)
+                            .startCap(RoundCap())
+                            .endCap(RoundCap())
+                            .jointType(JointType.ROUND)
+                            .zIndex(0.5f)
+                    )
+                    tvRouteLabel.text       = "Road route shown"
+                    tvRouteLabel.visibility = View.VISIBLE
+                } else {
+                    // Fallback: dashed straight line
+                    directionPolyline = googleMap.addPolyline(
+                        PolylineOptions()
+                            .add(from, to)
+                            .color(Color.parseColor("#1565C0"))
+                            .width(4f)
+                            .pattern(listOf(Dash(20f), Gap(12f)))
+                            .geodesic(true)
+                            .zIndex(0.5f)
+                    )
+                    tvRouteLabel.text       = "Straight-line route shown"
+                    tvRouteLabel.visibility = View.VISIBLE
+                }
+            }
+        }.start()
+    }
+
+    /** Parses the Directions API JSON and returns decoded polyline points. */
+    private fun parseDirectionsResponse(json: String): List<LatLng> {
+        return try {
+            val obj = JSONObject(json)
+            if (obj.getString("status") != "OK") return emptyList()
+            val encoded = obj.getJSONArray("routes")
+                .getJSONObject(0)
+                .getJSONObject("overview_polyline")
+                .getString("points")
+            decodePolyline(encoded)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Standard Google polyline decoding algorithm. */
+    private fun decodePolyline(encoded: String): List<LatLng> {
+        val result = mutableListOf<LatLng>()
+        var index = 0; val len = encoded.length
+        var lat = 0; var lng = 0
+        while (index < len) {
+            var b: Int; var shift = 0; var res = 0
+            do { b = encoded[index++].code - 63; res = res or (b and 0x1f shl shift); shift += 5 } while (b >= 0x20)
+            lat += if (res and 1 != 0) (res shr 1).inv() else res shr 1
+            shift = 0; res = 0
+            do { b = encoded[index++].code - 63; res = res or (b and 0x1f shl shift); shift += 5 } while (b >= 0x20)
+            lng += if (res and 1 != 0) (res shr 1).inv() else res shr 1
+            result.add(LatLng(lat / 1e5, lng / 1e5))
+        }
+        return result
     }
 
     // ── Sharer marker (orange) ────────────────────────────────────────────────
@@ -357,7 +500,6 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
                 .anchor(0.5f, 0.5f)
                 .flat(true)
                 .zIndex(2f)
-                .title("Sharer's Location")
         )
         previousSharerLatLng = position
     }
@@ -381,42 +523,30 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         markerAnimator?.start()
     }
 
-    /** Orange person icon — same shape as blue one but with orange palette. */
     private fun createSharerBitmap(): android.graphics.Bitmap {
-        val density = resources.displayMetrics.density
-        val size    = (56 * density).toInt()
-        val bmp     = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas  = android.graphics.Canvas(bmp)
+        val dp   = resources.displayMetrics.density
+        val size = (56 * dp).toInt()
+        val bmp  = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val cvs  = android.graphics.Canvas(bmp)
         val cx = size / 2f; val cy = size / 2f; val r = size / 2f
-
-        canvas.drawCircle(cx, cy, r * 0.95f,
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#33E65100") })
-        canvas.drawCircle(cx, cy, r * 0.70f,
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE })
-        canvas.drawCircle(cx, cy, r * 0.55f,
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#E65100") })
-        // head
-        canvas.drawCircle(cx, cy - r * 0.18f, r * 0.16f,
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE })
-        // body arc
-        canvas.drawArc(
+        fun paint(c: Int) = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = c }
+        cvs.drawCircle(cx, cy, r * 0.95f, paint(Color.parseColor("#33E65100")))
+        cvs.drawCircle(cx, cy, r * 0.70f, paint(Color.WHITE))
+        cvs.drawCircle(cx, cy, r * 0.55f, paint(Color.parseColor("#E65100")))
+        cvs.drawCircle(cx, cy - r * 0.18f, r * 0.16f, paint(Color.WHITE))
+        cvs.drawArc(
             android.graphics.RectF(cx - r * 0.28f, cy - r * 0.05f, cx + r * 0.28f, cy + r * 0.3f),
-            0f, 180f, true,
-            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE })
+            0f, 180f, true, paint(Color.WHITE)
+        )
         return bmp
     }
 
-    private fun updateRoutePolyline() {
-        routePolyline?.remove()
-        if (routePoints.size < 2) return
-        routePolyline = googleMap.addPolyline(
+    private fun updateSharerRoutePolyline() {
+        sharerRoutePolyline?.remove()
+        if (sharerRoutePoints.size < 2) return
+        sharerRoutePolyline = googleMap.addPolyline(
             PolylineOptions()
-                .addAll(routePoints)
+                .addAll(sharerRoutePoints)
                 .color(Color.parseColor("#E65100"))
                 .width(7f)
                 .startCap(RoundCap())
@@ -442,20 +572,16 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
         val me     = myLatLng
         val sharer = sharerLatLng
         if (me == null && sharer == null) return
-
         cameraMode = CameraMode.FREE
-
         if (me == null || sharer == null) {
-            val target = me ?: sharer!!
-            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(target, 15f))
+            googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(me ?: sharer!!, 15f))
             return
         }
-
         val bounds = LatLngBounds.Builder().include(me).include(sharer).build()
         googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 200))
     }
 
-    // ── Utilities ─────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun bearingBetween(from: LatLng, to: LatLng): Float {
         val lat1 = Math.toRadians(from.latitude)
@@ -484,6 +610,7 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         markerAnimator?.cancel()
         myPulsingMgr?.stop()
         stopViewerLocationUpdates()

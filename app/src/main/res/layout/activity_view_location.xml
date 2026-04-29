@@ -332,6 +332,44 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- Distance + route row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📍 Distance: "
+                    android:textSize="13sp"
+                    android:textColor="@color/on_surface_secondary"/>
+
+                <TextView
+                    android:id="@+id/tvDistance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="—"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary"/>
+
+                <View android:layout_width="0dp" android:layout_height="0dp"
+                    android:layout_weight="1"/>
+
+                <TextView
+                    android:id="@+id/tvRouteLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Route shown on map"
+                    android:textSize="11sp"
+                    android:textColor="@color/on_surface_secondary"
+                    android:visibility="gone"
+                    tools:ignore="SmallSp"/>
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/tvViewerUpdated"
                 android:layout_width="wrap_content"

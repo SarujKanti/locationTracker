@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Share Live Location screen.
+    Broadcasting starts automatically when this screen opens.
+    The user can share the code, copy it, or stop sharing.
+-->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -36,7 +41,7 @@
             android:orientation="vertical"
             android:padding="20dp">
 
-            <!-- Status badge -->
+            <!-- ── Broadcasting status badge ───────────────────────── -->
             <LinearLayout
                 android:id="@+id/layoutStatus"
                 android:layout_width="wrap_content"
@@ -62,13 +67,13 @@
                     android:id="@+id/tvStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Not Broadcasting"
+                    android:text="Starting…"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:textColor="@color/on_surface_secondary"/>
             </LinearLayout>
 
-            <!-- Session code card -->
+            <!-- ── Session code card ──────────────────────────────── -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -94,7 +99,6 @@
                         android:letterSpacing="0.1"
                         android:layout_marginBottom="12dp"/>
 
-                    <!-- The big code -->
                     <TextView
                         android:id="@+id/tvSessionCode"
                         android:layout_width="wrap_content"
@@ -105,22 +109,22 @@
                         android:textColor="@color/primary"
                         android:letterSpacing="0.12"
                         android:fontFamily="monospace"
-                        android:layout_marginBottom="16dp"/>
+                        android:layout_marginBottom="12dp"/>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Share this code with the person who wants to track you.\nThey enter it in the app to see your live location."
+                        android:text="Share this code — the other person enters it in\n\"Locate Me → View Live\" to see your position."
                         android:textSize="13sp"
                         android:textColor="@color/on_surface_secondary"
                         android:gravity="center"
                         android:layout_marginBottom="16dp"/>
 
-                    <!-- Copy button -->
+                    <!-- Copy code button -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnCopyCode"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="44dp"
                         android:text="Copy Code"
                         android:textStyle="bold"
                         app:backgroundTint="@color/primary"
@@ -130,7 +134,7 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Live stats card (visible while broadcasting) -->
+            <!-- ── Live stats card (visible while broadcasting) ───── -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardLiveStats"
                 android:layout_width="match_parent"
@@ -150,7 +154,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="BROADCASTING"
+                        android:text="BROADCASTING LIVE"
                         android:textSize="11sp"
                         android:textColor="@color/green_active"
                         android:textAllCaps="true"
@@ -169,7 +173,8 @@
                                 android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
                             <TextView android:id="@+id/tvBcastLat" android:layout_width="wrap_content"
                                 android:layout_height="wrap_content" android:text="—"
-                                android:textSize="14sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
+                                android:textSize="14sp" android:textStyle="bold"
+                                android:textColor="@color/on_surface"/>
                         </LinearLayout>
 
                         <View android:layout_width="1dp" android:layout_height="32dp"
@@ -182,7 +187,8 @@
                                 android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
                             <TextView android:id="@+id/tvBcastLng" android:layout_width="wrap_content"
                                 android:layout_height="wrap_content" android:text="—"
-                                android:textSize="14sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
+                                android:textSize="14sp" android:textStyle="bold"
+                                android:textColor="@color/on_surface"/>
                         </LinearLayout>
 
                         <View android:layout_width="1dp" android:layout_height="32dp"
@@ -195,46 +201,50 @@
                                 android:textColor="@color/on_surface_secondary" android:textAllCaps="true"/>
                             <TextView android:id="@+id/tvBcastSpeed" android:layout_width="wrap_content"
                                 android:layout_height="wrap_content" android:text="—"
-                                android:textSize="14sp" android:textStyle="bold" android:textColor="@color/on_surface"/>
+                                android:textSize="14sp" android:textStyle="bold"
+                                android:textColor="@color/on_surface"/>
                         </LinearLayout>
                     </LinearLayout>
 
-                    <TextView android:id="@+id/tvBcastUpdated"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    <TextView
+                        android:id="@+id/tvBcastUpdated"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
                         android:text="Waiting for location…"
-                        android:textSize="11sp" android:textColor="@color/on_surface_secondary"/>
+                        android:textSize="11sp"
+                        android:textColor="@color/on_surface_secondary"/>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Share via button -->
+            <!-- ── Share via system share sheet ──────────────────── -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnShareVia"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="12dp"
-                android:text="Share Code via…"
+                android:text="Share Code &amp; Link via…"
                 android:textStyle="bold"
                 android:textSize="15sp"
                 app:backgroundTint="@color/primary"
                 app:cornerRadius="14dp"/>
 
-            <!-- Start / Stop broadcast -->
+            <!-- ── Stop sharing (red, prominent) ─────────────────── -->
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnToggleBroadcast"
+                android:id="@+id/btnStopSharing"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="12dp"
-                android:text="Start Broadcasting"
+                android:text="Stop Sharing"
                 android:textStyle="bold"
                 android:textSize="15sp"
-                android:textColor="@color/green_active"
-                app:backgroundTint="@color/green_active_bg"
-                app:strokeColor="@color/green_active"
+                android:textColor="@color/red_stop"
+                app:backgroundTint="@color/red_stop_bg"
+                app:strokeColor="@color/red_stop"
                 app:strokeWidth="1dp"
                 app:cornerRadius="14dp"/>
 
-            <!-- New code -->
+            <!-- ── Generate new code ──────────────────────────────── -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnNewCode"
                 android:layout_width="match_parent"
