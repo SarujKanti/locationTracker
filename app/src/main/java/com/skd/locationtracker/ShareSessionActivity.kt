@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
@@ -258,18 +259,36 @@ class ShareSessionActivity : AppCompatActivity() {
     // ── Share / copy ──────────────────────────────────────────────────────────
 
     private fun shareCodeAndLink() {
-        val deepLink  = "locateme://view?code=$sessionId"
-        val storeLink = "https://play.google.com/store/apps/details?id=${packageName}"
+        val code       = sessionId
+        val storeUrl   = "https://play.google.com/store/apps/details?id=$packageName"
+
+        // locateme:// — opens ViewLocationActivity directly if the app is installed.
+        // Works as a tappable link in WhatsApp, Telegram, and most modern chat apps.
+        val deepLink = "locateme://view?code=$code"
+
+        // Chrome Intent URI — when opened in Chrome/browser on Android:
+        //   • App installed  → launches ViewLocationActivity with the code pre-filled
+        //   • App not installed → redirects to Play Store automatically
+        val chromeIntentUri = "intent://view?code=$code" +
+            "#Intent" +
+            ";scheme=locateme" +
+            ";package=$packageName" +
+            ";S.browser_fallback_url=${Uri.encode(storeUrl)}" +
+            ";end"
+
         val text = buildString {
             appendLine("📍 I'm sharing my live location with you!")
             appendLine()
-            appendLine("🔑 Code: $sessionId")
+            appendLine("🔑 Code: $code")
             appendLine()
-            appendLine("👆 Tap to open directly in the Locate Me app:")
+            appendLine("📱 Tap to open in Locate Me app (if installed):")
             appendLine(deepLink)
             appendLine()
-            appendLine("📲 Don't have the app? Install it free:")
-            append(storeLink)
+            appendLine("🌐 Or paste this in Chrome — opens the app or installs it:")
+            appendLine(chromeIntentUri)
+            appendLine()
+            appendLine("📲 Get the app free on Play Store:")
+            append(storeUrl)
         }
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

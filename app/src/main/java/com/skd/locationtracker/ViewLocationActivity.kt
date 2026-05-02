@@ -19,6 +19,8 @@ import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -128,6 +130,10 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Edge-to-edge: required for Android 15+ (which forces it for targetSdk 35+).
+        // Lets the map fill the whole screen; we handle all insets (status bar, nav bar,
+        // keyboard) manually via WindowInsetsAnimationCompat below.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_view_location)
 
         fusedClient = LocationServices.getFusedLocationProviderClient(this)
@@ -196,14 +202,52 @@ class ViewLocationActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun applyWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.viewerBottomSheet)) { _, insets ->
-            val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            val ime    = insets.getInsets(WindowInsetsCompat.Type.ime())
-            navBarSpacer.layoutParams = navBarSpacer.layoutParams.also {
-                it.height = maxOf(navBar.bottom, ime.bottom)
+        val sheet = findViewById<View>(R.id.viewerBottomSheet)
+
+        // ── 1. Status-bar inset: push the top FABs / legend below the status bar ──
+        //    The XML already has marginTop="52dp" which covers most devices, but with
+        //    edge-to-edge active we dynamically correct it so it's exact on every device.
+        listOf<Int>(R.id.fabBack, R.id.cardLegend).forEach { id ->
+            val v = findViewById<View>(id)
+            ViewCompat.setOnApplyWindowInsetsListener(v) { view, insets ->
+                val sb = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+                val lp = view.layoutParams as android.view.ViewGroup.MarginLayoutParams
+                lp.topMargin = sb.top + (16 * resources.displayMetrics.density).toInt()
+                view.layoutParams = lp
+                insets
             }
+        }
+
+        // ── 2. Nav-bar inset: keep the spacer at the bottom of the sheet so content
+        //    never hides behind the navigation bar. ────────────────────────────────
+        ViewCompat.setOnApplyWindowInsetsListener(sheet) { _, insets ->
+            val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            navBarSpacer.layoutParams = navBarSpacer.layoutParams.also { it.height = navBar.bottom }
+            navBarSpacer.requestLayout()
             insets
         }
+
+        // ── 3. IME animation: smoothly slide the bottom sheet above the keyboard. ──
+        //    Works on Android 11+ (API 30+).  On older versions the static
+        //    adjustResize in the manifest still resizes the window so the sheet
+        //    repositions automatically without this callback.
+        ViewCompat.setWindowInsetsAnimationCallback(
+            sheet,
+            object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP) {
+                override fun onProgress(
+                    insets: WindowInsetsCompat,
+                    runningAnimations: MutableList<WindowInsetsAnimationCompat>
+                ): WindowInsetsCompat {
+                    val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+                    val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+                    // Shift the sheet upward by exactly the keyboard height that
+                    // exceeds the nav bar (which is already accounted for by the spacer).
+                    val shift = (imeBottom - navBottom).coerceAtLeast(0)
+                    sheet.translationY = -shift.toFloat()
+                    return insets
+                }
+            }
+        )
     }
 
     // ── Map ready ────────────────────────────────────────────────────────────
