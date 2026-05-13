@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -74,7 +75,7 @@ class LocationService : Service() {
         startLocationUpdates()
         return START_STICKY
     }
-    
+
     private fun startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION
@@ -92,6 +93,7 @@ class LocationService : Service() {
         fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     private fun broadcastLocation(
         lat: Double, lng: Double, speed: Float, accuracy: Float, bearing: Float
     ) {
