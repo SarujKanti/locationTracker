@@ -110,7 +110,6 @@ class LocationService : Service() {
             ?.notify(NOTIFICATION_ID, buildNotification("%.5f, %.5f".format(lat, lng)))
     }
 
-    
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
